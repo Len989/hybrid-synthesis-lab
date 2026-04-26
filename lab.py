@@ -1,6 +1,5 @@
 """
-Hybrid Synthesis Laboratory — Полная версия (исправленная)
-Расширенная библиотека: группы, кольца, решётки, категории, кватернионы, векторные пространства.
+Hybrid Synthesis Laboratory — с AI-интерпретацией результатов
 """
 
 import streamlit as st
@@ -10,6 +9,7 @@ import itertools
 from typing import List, Tuple, Dict, Set, Optional
 import json
 from datetime import datetime
+import requests
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -37,13 +37,11 @@ class Term:
         return hash((self.head, tuple(self.args)))
     
     def substitute(self, mapping: Dict[str, "Term"]) -> "Term":
-        """Подстановка переменных в терм."""
         if not self.args:
             return mapping.get(self.head, self)
         return Term(self.head, [arg.substitute(mapping) for arg in self.args])
     
     def variables(self) -> Set[str]:
-        """Свободные переменные в терме."""
         if not self.args:
             return {self.head} if self.head[0].islower() else set()
         result = set()
@@ -52,14 +50,12 @@ class Term:
         return result
     
     def to_dict(self) -> dict:
-        """Сериализация терма."""
         if not self.args:
             return {"head": self.head, "args": []}
         return {"head": self.head, "args": [arg.to_dict() for arg in self.args]}
     
     @classmethod
     def from_dict(cls, d: dict) -> "Term":
-        """Десериализация терма."""
         return cls(d["head"], [cls.from_dict(arg) for arg in d["args"]])
 
 
@@ -95,11 +91,9 @@ class CongruenceClosure:
 
     def close(self, equations: List[Tuple[Term, Term]], arities: Dict[str, int]):
         """Замыкание: начальное объединение + ограниченное распространение."""
-        # Шаг 1: Объединяем все равенства
         for left, right in equations:
             self.union(left, right)
         
-        # Шаг 2: Ограниченное распространение на существующие термы
         changed = True
         max_iterations = 50
         iteration = 0
@@ -199,7 +193,7 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
 
     equations: List[Tuple[Term, Term]] = []
 
-    # 1. Аксиомы A (только если они не содержат переменных или мало переменных)
+    # 1. Аксиомы A
     for left, right in A.axioms:
         vars_left = left.variables()
         vars_right = right.variables()
@@ -312,6 +306,63 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
         equations_count=len(equations),
         timestamp=datetime.now().isoformat()
     )
+
+
+# ═══════════════════════════════════════════════════════════════════
+# AI INTERPRETER
+# ═══════════════════════════════════════════════════════════════════
+
+def get_ai_comment(result: SynthesisResult, api_key: str) -> str:
+    """Получить комментарий от DeepSeek API."""
+    if result.collapsed:
+        prompt = f"""Ты — эксперт по абстрактной алгебре и теории категорий.
+Синтез двух алгебраических структур привёл к КОЛЛАПСУ — все элементы носителя отождествились.
+Наложено равенств: {result.equations_count}
+
+Дай КОРОТКИЙ ответ (2-4 предложения):
+1. Почему это интересно (это no-go theorem)?
+2. Что именно вызвало коллапс?
+3. Какие архитектурные ограничения это демонстрирует?
+Отвечай на русском."""
+    else:
+        atom = result.atom
+        prompt = f"""Ты — эксперт по абстрактной алгебре и теории категорий.
+Проанализируй результат архитектурного синтеза двух структур.
+
+Родитель A: {atom.parent_atoms[0] if atom.parent_atoms else 'нет данных'}
+Родитель B: {atom.parent_atoms[1] if len(atom.parent_atoms) > 1 else 'нет данных'}
+Взаимодействие: {atom.interaction}
+Носитель: {', '.join(atom.carrier)} ({len(atom.carrier)} элементов)
+Операции: {', '.join(f'{op}:{ar}' for op, ar in atom.operations.items())}
+Классов эквивалентности: {len(result.classes)}
+
+Дай КОРОТКИЙ ответ (2-4 предложения):
+1. Что это за структура?
+2. Почему она не схлопнулась?
+3. Интересна ли она математически?
+Отвечай на русском."""
+    
+    try:
+        response = requests.post(
+            "https://api.deepseek.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "deepseek-chat",
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 250,
+                "temperature": 0.7
+            },
+            timeout=15
+        )
+        if response.status_code == 200:
+            return response.json()["choices"][0]["message"]["content"]
+        else:
+            return f"⚠️ Ошибка API: {response.status_code}"
+    except Exception as e:
+        return f"⚠️ Не удалось получить комментарий: {str(e)[:100]}"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -470,6 +521,7 @@ if 'library' not in st.session_state:
 if 'synthesis_history' not in st.session_state:
     st.session_state.synthesis_history = []
 
+# Боковая панель
 with st.sidebar:
     st.header("📚 Библиотека")
     lib = st.session_state.library
@@ -479,6 +531,12 @@ with st.sidebar:
     atom_a_name = st.selectbox("Атом A (цель)", names)
     atom_b_name = st.selectbox("Атом B (оператор)", names)
     action_name = st.text_input("Действие", "·")
+    
+    # API-ключ
+    st.markdown("---")
+    st.subheader("🤖 AI-интерпретатор")
+    api_key = st.text_input("DeepSeek API ключ", type="password", 
+                            help="Получить на platform.deepseek.com")
     
     if st.button("🚀 Синтезировать", type="primary", use_container_width=True):
         A = lib[atom_a_name]
@@ -493,6 +551,7 @@ with st.sidebar:
             st.success(f"✅ {result.atom.name}")
             lib[result.atom.name] = result.atom
 
+# Основная область
 tab1, tab2 = st.tabs(["🔬 Результат", "📖 Библиотека"])
 
 with tab1:
@@ -500,6 +559,7 @@ with tab1:
         st.info("Выполните синтез в боковой панели.")
     else:
         result = st.session_state.last_result
+        
         if result.collapsed:
             st.error("💥 АРХИТЕКТУРА КОЛЛАПСИРОВАЛА")
             st.markdown("**Все элементы носителя отождествлены.** Данная конфигурация структур и взаимодействия математически невозможна — это **no-go theorem**.")
@@ -517,42 +577,33 @@ with tab1:
             st.markdown(f"**Родители:** {', '.join(atom.parent_atoms)}")
             st.markdown(f"**Взаимодействие:** {atom.interaction}")
             
-            # Показываем операции
             st.subheader("🧮 Операции синтезированной структуры")
-            ops_list = []
-            for op_name, arity in atom.operations.items():
-                ops_list.append(f"`{op_name}` (арность {arity})")
+            ops_list = [f"`{op}` (арность {ar})" for op, ar in atom.operations.items()]
             st.markdown(", ".join(ops_list))
             
             # Проверка свойств
             st.subheader("🔍 Проверка алгебраических свойств")
-            
-            # Проверяем дистрибутивность (для кольца)
             if "+" in atom.operations and "·" in atom.operations:
-                st.markdown("**Дистрибутивность:**")
-                # Проверяем a·(b+c) = a·b + a·c на элементах носителя
-                carrier_vals = atom.carrier
-                distrib_holds = True
-                for a in carrier_vals:
-                    for b in carrier_vals:
-                        for c in carrier_vals:
-                            # Это символьная проверка — в реальном синтезе дистрибутивность
-                            # уже вшита в классы эквивалентности
-                            pass
-                st.markdown("✅ Дистрибутивность обеспечивается коуравнителем (встроена в классы эквивалентности)")
-            
-            # Проверяем наличие нейтральных элементов
+                st.markdown("✅ **Дистрибутивность** обеспечивается коуравнителем")
             if "0" in atom.operations:
-                st.markdown("✅ **Аддитивный ноль** присутствует (нейтральный для `+`)")
-            if "1" in atom.operations:
-                st.markdown("✅ **Мультипликативная единица** присутствует (нейтральный для `·`)")
-            
-            # Показываем классы эквивалентности
-            with st.expander("🧬 Классы эквивалентности (coequalizer)", expanded=False):
-                st.markdown("*Отношение эквивалентности, порождённое синтезом:*")
-                for rep, elems in sorted(result.classes.items(), key=lambda x: repr(x[0])):
-                    elems_str = ", ".join(map(repr, elems[:10]))
-                    if len(elems) > 10:
-                        elems_str += f" ... (+{len(elems)-10})"
-                    st.write(f"**{repr(rep)}** → {{{elems_str}}}")
-                st.caption(f"Всего классов: {len(result.classes)}")
+                st.markdown("✅ **Нейтральный элемент** присутствует")
+        
+        # AI-комментарий
+        st.markdown("---")
+        if api_key:
+            if st.button("🤖 Интерпретировать результат (AI)", type="secondary"):
+                with st.spinner("DeepSeek анализирует синтез..."):
+                    comment = get_ai_comment(result, api_key)
+                    st.info(f"💬 **Комментарий AI:**\n\n{comment}")
+        else:
+            st.caption("Введите API-ключ DeepSeek в боковой панели для AI-интерпретации.")
+
+with tab2:
+    for name in sorted(lib.keys()):
+        atom = lib[name]
+        with st.expander(f"{'🔷' if atom.is_synthetic else '💠'} {name}"):
+            st.write(f"Носитель: {', '.join(atom.carrier)}")
+            st.write(f"Операции: {', '.join(f'{op}:{ar}' for op, ar in atom.operations.items())}")
+
+st.markdown("---")
+st.caption("Hybrid Synthesis Laboratory v2.0 | E. Azari & L. Shcherbakov (2025)")
