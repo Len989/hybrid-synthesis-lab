@@ -551,7 +551,7 @@ with st.sidebar:
         else:
             st.success(f"✅ {result.atom.name}")
             lib[result.atom.name] = result.atom
-
+            st.rerun()  # ← ДОБАВЬТЕ ЭТУ СТРОКУ
 # Основная область
 tab1, tab2 = st.tabs(["🔬 Результат", "📖 Библиотека"])
 
