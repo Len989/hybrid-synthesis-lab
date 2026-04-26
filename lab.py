@@ -606,4 +606,4 @@ with tab2:
             st.write(f"Операции: {', '.join(f'{op}:{ar}' for op, ar in atom.operations.items())}")
 
 st.markdown("---")
-st.caption("Hybrid Synthesis Laboratory v2.0 | E. Azari & L. Shcherbakov (2025)")
+st.caption("Hybrid Synthesis Laboratory v2.0 | L. Shcherbakov (2025)")
