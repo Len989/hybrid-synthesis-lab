@@ -59,32 +59,54 @@ class Term:
 
 
 class CongruenceClosure:
-    def __init__(self):
-        self.parent: Dict[Term, Term] = {}
-        self.rank: Dict[Term, int] = {}
-
-    def find(self, t: Term) -> Term:
-        if t not in self.parent:
-            self.parent[t] = t
-            self.rank[t] = 0
-            return t
-        if self.parent[t] != t:
-            self.parent[t] = self.find(self.parent[t])
-        return self.parent[t]
-
-    def union(self, t1: Term, t2: Term) -> bool:
-        p1 = self.find(t1)
-        p2 = self.find(t2)
-        if p1 == p2:
-            return False
-        if self.rank[p1] < self.rank[p2]:
-            self.parent[p1] = p2
-        elif self.rank[p1] > self.rank[p2]:
-            self.parent[p2] = p1
-        else:
-            self.parent[p2] = p1
-            self.rank[p1] += 1
-        return True
+    def close(self, equations: List[Tuple[Term, Term]], arities: Dict[str, int]):
+    """Замыкание: начальное объединение + распространение конгруэнтности (безопасная версия)."""
+    # Шаг 1: Объединяем все равенства
+    for left, right in equations:
+        self.union(left, right)
+    
+    # Шаг 2: Ограниченное распространение — только на известные термы
+    # Не генерируем новые комбинации, только проверяем существующие
+    changed = True
+    max_iterations = 100  # защита от бесконечного цикла
+    iteration = 0
+    
+    while changed and iteration < max_iterations:
+        changed = False
+        iteration += 1
+        
+        # Собираем все известные термы
+        all_terms = list(self.parent.keys())
+        
+        # Для каждой операции проверяем, не появились ли новые равенства
+        for op, arity in arities.items():
+            if arity == 0:
+                continue
+            
+            # Перебираем существующие термы, а не все возможные комбинации
+            for t in all_terms:
+                if t.head != op:
+                    continue
+                if len(t.args) != arity:
+                    continue
+                
+                # Для каждого аргумента проверяем, равен ли он чему-то ещё
+                for i in range(arity):
+                    root_i = self.find(t.args[i])
+                    for other in all_terms:
+                        if self.find(other) == root_i and other != t.args[i]:
+                            new_args = list(t.args)
+                            new_args[i] = other
+                            new_t = Term(op, new_args)
+                            if self.union(t, new_t):
+                                changed = True
+                                break
+                    if changed:
+                        break
+                if changed:
+                    break
+            if changed:
+                break
 
     def close(self, equations: List[Tuple[Term, Term]], arities: Dict[str, int]):
         for left, right in equations:
