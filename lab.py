@@ -6,7 +6,7 @@ import streamlit as st
 from dataclasses import dataclass, field
 from collections import defaultdict
 import itertools
-from typing import List, Tuple, Dict, Set, Optional
+from typing import List, Tuple, Dict, Set, Optional, Callable
 import json
 from datetime import datetime
 import requests
@@ -18,7 +18,7 @@ import requests
 
 class Term:
     """Символьный терм для алгебраических выражений."""
-    
+
     def __init__(self, head: str, args: List["Term"] | None = None):
         self.head = head
         self.args = args or []
@@ -35,12 +35,12 @@ class Term:
 
     def __hash__(self):
         return hash((self.head, tuple(self.args)))
-    
+
     def substitute(self, mapping: Dict[str, "Term"]) -> "Term":
         if not self.args:
             return mapping.get(self.head, self)
         return Term(self.head, [arg.substitute(mapping) for arg in self.args])
-    
+
     def variables(self) -> Set[str]:
         if not self.args:
             return {self.head} if self.head[0].islower() else set()
@@ -48,12 +48,12 @@ class Term:
         for arg in self.args:
             result.update(arg.variables())
         return result
-    
+
     def to_dict(self) -> dict:
         if not self.args:
             return {"head": self.head, "args": []}
         return {"head": self.head, "args": [arg.to_dict() for arg in self.args]}
-    
+
     @classmethod
     def from_dict(cls, d: dict) -> "Term":
         return cls(d["head"], [cls.from_dict(arg) for arg in d["args"]])
@@ -61,7 +61,7 @@ class Term:
 
 class CongruenceClosure:
     """Замыкание конгруэнции: Union-Find с безопасным распространением."""
-    
+
     def __init__(self):
         self.parent: Dict[Term, Term] = {}
         self.rank: Dict[Term, int] = {}
@@ -93,16 +93,16 @@ class CongruenceClosure:
         """Замыкание: начальное объединение + ограниченное распространение."""
         for left, right in equations:
             self.union(left, right)
-        
+
         changed = True
         max_iterations = 50
         iteration = 0
-        
+
         while changed and iteration < max_iterations:
             changed = False
             iteration += 1
             all_terms = list(self.parent.keys())
-            
+
             for op, arity in arities.items():
                 if arity == 0:
                     continue
@@ -142,7 +142,7 @@ class Atom:
     parent_atoms: List[str] = field(default_factory=list)
     interaction: str = ""
     synthesis_date: str = ""
-    
+
     def to_dict(self) -> dict:
         return {
             "name": self.name,
@@ -155,7 +155,7 @@ class Atom:
             "interaction": self.interaction,
             "synthesis_date": self.synthesis_date
         }
-    
+
     @classmethod
     def from_dict(cls, d: dict) -> "Atom":
         axioms = [(Term.from_dict(left), Term.from_dict(right)) for left, right in d.get("axioms", [])]
@@ -198,7 +198,7 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
         vars_left = left.variables()
         vars_right = right.variables()
         all_vars = vars_left | vars_right
-        
+
         if len(all_vars) == 0:
             equations.append((left, right))
         elif len(all_vars) <= 2:
@@ -211,7 +211,7 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
         vars_left = left_b.variables()
         vars_right = right_b.variables()
         all_vars_b = vars_left | vars_right
-        
+
         if len(all_vars_b) == 0:
             for a in A.carrier:
                 equations.append((
@@ -251,8 +251,6 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
     for t in list(cc.parent.keys()):
         classes[cc.find(t)].append(t)
 
-    
-
     # ── НОРМАЛИЗАЦИЯ ЧЕРЕЗ REWRITING ─────────────────────
     rs = build_rewriting_system(A, action_name)
 
@@ -270,7 +268,7 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
             normalized_classes[norm_rep] = norm_elems
         else:
             for e in norm_elems:
-                 if e not in normalized_classes[norm_rep]:
+                if e not in normalized_classes[norm_rep]:
                     normalized_classes[norm_rep].append(e)
 
     classes = normalized_classes
@@ -330,7 +328,7 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
         classes=dict(classes),
         equations_count=len(equations),
         timestamp=datetime.now().isoformat()
-    )      
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -366,7 +364,7 @@ def get_ai_comment(result: SynthesisResult, api_key: str) -> str:
 2. Почему она не схлопнулась?
 3. Интересна ли она математически?
 Отвечай на русском."""
-    
+
     try:
         response = requests.post(
             "https://api.deepseek.com/v1/chat/completions",
@@ -394,57 +392,57 @@ def get_ai_comment(result: SynthesisResult, api_key: str) -> str:
 # REWRITING SYSTEM (Knuth-Bendix light)
 # ═══════════════════════════════════════════════════════════════════
 
-    class RewritingSystem:
-        """Система правил редукции термов."""
-    
-        def __init__(self):
-            self.rules: List[Tuple[Term, Term]] = []
-    
-        def add_rule(self, left: Term, right: Term):
-            """Добавить правило: left → right."""
-            if len(repr(left)) >= len(repr(right)):
-                self.rules.append((left, right))
-            else:
-                self.rules.append((right, left))
-    
-        def normalize(self, term: Term, depth: int = 0) -> Term:
-            """Применить правила редукции к терму, пока возможно."""
-            if depth > 100:
-                return term
-        
-            if term.args:
-                normalized_args = [self.normalize(arg, depth + 1) for arg in term.args]
-                term = Term(term.head, normalized_args)
-        
-            for pattern, replacement in self.rules:
-                mapping = self._match(pattern, term)
-                if mapping is not None:
-                    result = replacement.substitute(mapping)
-                    return self.normalize(result, depth + 1)
-        
+class RewritingSystem:
+    """Система правил редукции термов."""
+
+    def __init__(self):
+        self.rules: List[Tuple[Term, Term]] = []
+
+    def add_rule(self, left: Term, right: Term):
+        """Добавить правило: left → right."""
+        if len(repr(left)) >= len(repr(right)):
+            self.rules.append((left, right))
+        else:
+            self.rules.append((right, left))
+
+    def normalize(self, term: Term, depth: int = 0) -> Term:
+        """Применить правила редукции к терму, пока возможно."""
+        if depth > 100:
             return term
-    
-        def _match(self, pattern: Term, term: Term) -> Optional[Dict[str, Term]]:
-            """Сопоставить паттерн с термом. Вернуть подстановку или None."""
-            if not pattern.args and pattern.head[0].islower():
-                return {pattern.head: term}
-        
-            if pattern.head != term.head or len(pattern.args) != len(term.args):
+
+        if term.args:
+            normalized_args = [self.normalize(arg, depth + 1) for arg in term.args]
+            term = Term(term.head, normalized_args)
+
+        for pattern, replacement in self.rules:
+            mapping = self._match(pattern, term)
+            if mapping is not None:
+                result = replacement.substitute(mapping)
+                return self.normalize(result, depth + 1)
+
+        return term
+
+    def _match(self, pattern: Term, term: Term) -> Optional[Dict[str, Term]]:
+        """Сопоставить паттерн с термом. Вернуть подстановку или None."""
+        if not pattern.args and pattern.head[0].islower():
+            return {pattern.head: term}
+
+        if pattern.head != term.head or len(pattern.args) != len(term.args):
+            return None
+
+        mapping = {}
+        for p_arg, t_arg in zip(pattern.args, term.args):
+            sub_match = self._match(p_arg, t_arg)
+            if sub_match is None:
                 return None
-        
-            mapping = {}
-            for p_arg, t_arg in zip(pattern.args, term.args):
-                sub_match = self._match(p_arg, t_arg)
-                if sub_match is None:
-                    return None
-                for var, val in sub_match.items():
-                    if var in mapping:
-                        if mapping[var] != val:
-                            return None
-                    else:
-                        mapping[var] = val
-        
-            return mapping
+            for var, val in sub_match.items():
+                if var in mapping:
+                    if mapping[var] != val:
+                        return None
+                else:
+                    mapping[var] = val
+
+        return mapping
 
 
 def generalize_rules(A: Atom) -> List[Tuple[Term, Term]]:
@@ -454,16 +452,16 @@ def generalize_rules(A: Atom) -> List[Tuple[Term, Term]]:
     for left, right in A.axioms:
         if left.args:
             by_head[left.head].append((left, right))
-    
+
     for head, group in by_head.items():
         if len(group) < len(A.carrier):
             continue
-        
+
         for const_name, const_arity in A.operations.items():
             if const_arity != 0:
                 continue
             const_term = Term(const_name, [])
-            
+
             covers_all = True
             for elem in A.carrier:
                 elem_term = Term(elem)
@@ -482,13 +480,13 @@ def generalize_rules(A: Atom) -> List[Tuple[Term, Term]]:
                 if not found:
                     covers_all = False
                     break
-            
+
             if covers_all:
                 var_x = Term("x")
                 general_left = Term(head, [const_term, var_x])
                 general_right = var_x
                 general_rules.append((general_left, general_right))
-    
+
     return general_rules
 
 
@@ -496,16 +494,16 @@ def add_standard_rules(rs: RewritingSystem, A: Atom, action_name: str):
     """Добавляет стандартные правила редукции для операций атома A."""
     var_x = Term("x")
     var_y = Term("y")
-    
+
     for op_name, arity in A.operations.items():
         if arity != 2:
             continue
-        
+
         for const_name, const_arity in A.operations.items():
             if const_arity != 0:
                 continue
             const_term = Term(const_name, [])
-            
+
             has_left_identity = all(
                 any(left == Term(op_name, [const_term, Term(elem)]) and right == Term(elem)
                     for left, right in A.axioms)
@@ -516,7 +514,7 @@ def add_standard_rules(rs: RewritingSystem, A: Atom, action_name: str):
                     for left, right in A.axioms)
                 for elem in A.carrier
             )
-            
+
             if has_left_identity:
                 rs.add_rule(Term(op_name, [const_term, var_x]), var_x)
             if has_right_identity:
@@ -526,17 +524,18 @@ def add_standard_rules(rs: RewritingSystem, A: Atom, action_name: str):
 def build_rewriting_system(A: Atom, action_name: str) -> RewritingSystem:
     """Создать систему правил редукции из аксиом атома A."""
     rs = RewritingSystem()
-    
+
     for left, right in A.axioms:
         rs.add_rule(left, right)
-    
+
     general = generalize_rules(A)
     for left, right in general:
         rs.add_rule(left, right)
-    
+
     add_standard_rules(rs, A, action_name)
-    
+
     return rs
+
 
 # ═══════════════════════════════════════════════════════════════════
 # BUILT-IN LIBRARY
@@ -561,20 +560,21 @@ def create_builtin_library() -> Dict[str, Atom]:
         description="Циклическая группа порядка 2 (аддитивная)."
     )
     lib[Z2.name] = Z2
+
     # Z2 (ring)
     Z2_ring = Atom(
         name="Z₂ (ring)",
         carrier=["0", "1"],
         operations={"+": 2, "0": 0, "-": 1, "*": 2, "1": 0},
         axioms=[
-        # Сложение (абелева группа Z₂)
+            # Сложение (абелева группа Z₂)
             (Term("+", [Term("0"), Term("0")]), Term("0")),
             (Term("+", [Term("0"), Term("1")]), Term("1")),
             (Term("+", [Term("1"), Term("0")]), Term("1")),
             (Term("+", [Term("1"), Term("1")]), Term("0")),
             (Term("-", [Term("0")]), Term("0")),
             (Term("-", [Term("1")]), Term("1")),
-        # Умножение (моноид с нулём)
+            # Умножение (моноид с нулём)
             (Term("*", [Term("0"), Term("x")]), Term("0")),
             (Term("*", [Term("x"), Term("0")]), Term("0")),
             (Term("*", [Term("1"), Term("x")]), Term("x")),
@@ -583,6 +583,7 @@ def create_builtin_library() -> Dict[str, Atom]:
         description="Кольцо целых чисел по модулю 2 (поле Z₂)."
     )
     lib[Z2_ring.name] = Z2_ring
+
     # Z3 (additive)
     Z3 = Atom(
         name="Z3 (additive group)",
@@ -1395,10 +1396,10 @@ with st.sidebar:
     lib = st.session_state.library
     names = sorted(lib.keys())
     st.caption(f"Структур: {len(names)}")
-    
+
     atom_a_name = st.selectbox("Атом A (цель)", names)
     atom_b_name = st.selectbox("Атом B (оператор)", names)
-    
+
     # ── Выбор действия ──────────────────────────────────────
     st.subheader("⚡ Действие")
     action_presets = {
@@ -1438,16 +1439,16 @@ with st.sidebar:
     # API-ключ
     st.markdown("---")
     st.subheader("🤖 AI-интерпретатор")
-    api_key = st.text_input("DeepSeek API ключ", type="password", 
+    api_key = st.text_input("DeepSeek API ключ", type="password",
                             help="Получить на platform.deepseek.com")
-    
+
     if st.button("🚀 Синтезировать", type="primary", use_container_width=True):
         A = lib[atom_a_name]
         B = lib[atom_b_name]
         with st.spinner("Синтез..."):
             result = synthesize(A, B, action_name)
         st.session_state.last_result = result
-        
+
         if result.collapsed:
             st.error("💥 Коллапс!")
         else:
@@ -1473,7 +1474,7 @@ with tab1:
                 "Данная конфигурация структур и взаимодействия математически невозможна — это **no-go theorem**."
             )
             st.metric("Количество наложенных равенств", result.equations_count)
-            
+
             with st.expander("🧾 Вынужденные равенства (первые 100)", expanded=False):
                 st.caption("Эти равенства были наложены коуравнителем:")
                 st.write(f"Всего равенств: {result.equations_count}")
@@ -1532,7 +1533,7 @@ with tab1:
                         if not found:
                             row.append("—")
                     table_data.append(row)
-                
+
                 for row in table_data:
                     st.write(" | ".join(row))
                 st.caption("Прочерк означает, что терм не попал ни в один класс (редкий случай).")
