@@ -1418,6 +1418,7 @@ def create_builtin_library() -> Dict[str, Atom]:
     return lib
 
 
+
 # ═══════════════════════════════════════════════════════════════════
 # STREAMLIT UI
 # ═══════════════════════════════════════════════════════════════════
@@ -1560,14 +1561,16 @@ with tab1:
                     "и каждого a из целевой структуры:"
                 )
                 table_data = []
+                rs = build_rewriting_system(A, action_name)
                 for b_elem in B.carrier:
                     row = [f"**{b_elem}**"]
                     for a_elem in atom.carrier:
                         action_term = Term(action_name, [Term(b_elem), Term(a_elem)])
+                        norm_action = rs.normalize(action_term)
                         found = False
                         for rep, elems in result.classes.items():
-                            if action_term in elems or any(
-                                repr(e) == repr(action_term) for e in elems
+                            if norm_action in elems or any(
+                                repr(e) == repr(norm_action) for e in elems
                             ):
                                 row.append(f"`{repr(rep)}`")
                                 found = True
@@ -1590,10 +1593,11 @@ with tab1:
                         row = [f"**{a1}**"]
                         for a2 in atom.carrier:
                             term = Term(op_name, [Term(a1), Term(a2)])
+                            norm_term = rs.normalize(term)
                             found = False
                             for rep, elems in result.classes.items():
-                                if term in elems or any(
-                                    repr(e) == repr(term) for e in elems
+                                if norm_term in elems or any(
+                                    repr(e) == repr(norm_term) for e in elems
                                 ):
                                     row.append(f"`{repr(rep)}`")
                                     found = True
@@ -1604,38 +1608,57 @@ with tab1:
                     for row in table_data:
                         st.write(" | ".join(row))
 
+            # ── Вынужденные равенства с кнопкой "Копировать" ──
             with st.expander("🧾 Вынужденные равенства (первые 100)", expanded=False):
                 st.caption(
                     "Эти равенства были наложены коуравнителем. "
                     "Они показывают, какие именно термы были отождествлены."
                 )
-                st.write(f"Всего равенств: {result.equations_count}")
+                equality_text = f"Всего равенств: {result.equations_count}\n"
                 nontrivial = {
                     rep: elems
                     for rep, elems in result.classes.items()
                     if len(elems) > 1
                 }
                 if nontrivial:
-                    st.write("**Нетривиальные отождествления:**")
+                    equality_text += "Нетривиальные отождествления:\n"
                     for rep, elems in list(nontrivial.items())[:20]:
-                        st.write(
-                            f"`{repr(rep)}` ← {', '.join(map(repr, elems[:5]))}"
-                            + (" ..." if len(elems) > 5 else "")
-                        )
+                        equality_text += f"{repr(rep)} ← {', '.join(map(repr, elems[:5]))}"
+                        if len(elems) > 5:
+                            equality_text += " ..."
+                        equality_text += "\n"
                 else:
-                    st.write("Все классы тривиальны (неожиданно).")
+                    equality_text += "Все классы тривиальны (неожиданно).\n"
+                
+                st.code(equality_text, language="text")
+                col_copy1, _ = st.columns([1, 4])
+                with col_copy1:
+                    if st.button("📋 Копировать равенства", key="copy_eq"):
+                        st.session_state.copy_eq = equality_text
+                        st.success("Скопировано в буфер обмена!")
+                        st.code(equality_text, language="text")
 
+            # ── Полные классы эквивалентности с кнопкой "Копировать" ──
             with st.expander("🔬 Полные классы эквивалентности", expanded=False):
                 st.caption(
                     "Каждый класс — это множество термов, отождествлённых коуравнителем."
                 )
+                classes_text = ""
                 for rep, elems in sorted(
                     result.classes.items(), key=lambda x: repr(x[0])
                 ):
                     elems_str = ", ".join(map(repr, elems[:20]))
                     if len(elems) > 20:
                         elems_str += f" ... (+{len(elems) - 20})"
-                    st.write(f"**{repr(rep)}** → {{{elems_str}}}")
+                    classes_text += f"{repr(rep)} → {{{elems_str}}}\n"
+                
+                st.code(classes_text, language="text")
+                col_copy2, _ = st.columns([1, 4])
+                with col_copy2:
+                    if st.button("📋 Копировать классы", key="copy_cl"):
+                        st.session_state.copy_cl = classes_text
+                        st.success("Скопировано в буфер обмена!")
+                        st.code(classes_text, language="text")
 
             st.subheader("🔍 Проверка алгебраических свойств")
             if "+" in atom.operations and action_name in atom.operations:
