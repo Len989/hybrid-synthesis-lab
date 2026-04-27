@@ -183,7 +183,7 @@ class SynthesisResult:
     classes: Dict[Term, List[Term]]
     equations_count: int
     timestamp: str
-
+    cc: Optional[CongruenceClosure] = None
 
 def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
     all_ops = {}
@@ -384,6 +384,7 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
             classes=dict(classes),
             equations_count=len(equations),
             timestamp=datetime.now().isoformat()
+            cc=cc
         )
 
     # Построение нового атома
@@ -427,6 +428,7 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
         classes=dict(classes),
         equations_count=len(equations),
         timestamp=datetime.now().isoformat()
+        cc=cc
     )
 
 
