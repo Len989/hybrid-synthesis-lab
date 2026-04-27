@@ -9,7 +9,8 @@ import itertools
 from typing import List, Tuple, Dict, Set, Optional, Callable
 import json
 from datetime import datetime
-import requests
+import asyncio
+from openai import OpenAI
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -418,11 +419,11 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# AI INTERPRETER (OpenRouter API - HY 3)
+# AI INTERPRETER (OpenRouter SDK)
 # ═══════════════════════════════════════════════════════════════════
 
-def get_ai_comment(result: SynthesisResult, api_key: str) -> str:
-    """Получить комментарий от OpenRouter API (модель tencent/hy3-preview:free)."""
+async def get_ai_comment_async(result: SynthesisResult, api_key: str) -> str:
+    """Получить комментарий от OpenRouter API (модель nvidia/nemotron-3-super-120b-a12b:free)."""
     if result.collapsed:
         prompt = f"""Ты — эксперт по абстрактной алгебре и теории категорий.
 Синтез двух алгебраических структур привёл к КОЛЛАПСУ — все элементы носителя отождествились.
@@ -452,45 +453,55 @@ def get_ai_comment(result: SynthesisResult, api_key: str) -> str:
 Отвечай на русском."""
 
     try:
-        # Используем OpenRouter API с потоковой передачей
-        response = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "tencent/hy3-preview:free",  # модель HY 3
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 250,
-                "temperature": 0.7,
-                "stream": False  # Для простоты используем не-потоковый режим
-            },
-            timeout=30
+        # Инициализируем OpenRouter клиент
+        client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=api_key,
         )
+
+        # Используем потоковую передачу
+        stream = client.chat.completions.create(
+            model="nvidia/nemotron-3-super-120b-a12b:free",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=250,
+            temperature=0.7,
+            stream=True,
+        )
+
+        response = ""
+        reasoning_tokens = None
         
-        if response.status_code == 200:
-            result_data = response.json()
-            # Проверяем структуру ответа OpenRouter
-            if "choices" in result_data and len(result_data["choices"]) > 0:
-                content = result_data["choices"][0]["message"]["content"]
-                
-                # Если есть информация о reasoning tokens (для совместимости)
-                if "usage" in result_data and "reasoning_tokens" in result_data["usage"]:
-                    reasoning_tokens = result_data["usage"]["reasoning_tokens"]
-                    # Можно добавить отладочную информацию
-                    # st.caption(f"Reasoning tokens: {reasoning_tokens}")
-                
-                return content
-            else:
-                return f"⚠️ Неожиданный формат ответа API"
-        else:
-            return f"⚠️ Ошибка API: {response.status_code} - {response.text[:200]}"
-            
-    except requests.exceptions.Timeout:
-        return f"⚠️ Таймаут API (30 сек). Попробуйте позже."
+        for chunk in stream:
+            content = chunk.choices[0].delta.content if chunk.choices and chunk.choices[0].delta else None
+            if content:
+                response += content
+
+            # Usage information comes in the final chunk
+            if hasattr(chunk, 'usage') and chunk.usage:
+                if hasattr(chunk.usage, 'reasoning_tokens'):
+                    reasoning_tokens = chunk.usage.reasoning_tokens
+
+        if reasoning_tokens is not None:
+            st.caption(f"🧠 Reasoning tokens: {reasoning_tokens}")
+
+        return response.strip() if response else "⚠️ Пустой ответ от API"
+
     except Exception as e:
         return f"⚠️ Не удалось получить комментарий: {str(e)[:100]}"
+
+
+def get_ai_comment(result: SynthesisResult, api_key: str) -> str:
+    """Синхронная обёртка для асинхронной функции."""
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # Если уже есть запущенный event loop, используем nest_asyncio
+            import nest_asyncio
+            nest_asyncio.apply()
+        return loop.run_until_complete(get_ai_comment_async(result, api_key))
+    except RuntimeError:
+        # Если нет event loop, создаём новый
+        return asyncio.run(get_ai_comment_async(result, api_key))
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1559,7 +1570,7 @@ with st.sidebar:
     # API-ключ (теперь для OpenRouter)
     st.markdown("---")
     st.subheader("🤖 AI-интерпретатор")
-    st.caption("Используется модель: **tencent/hy3-preview:free** через OpenRouter")
+    st.caption("Используется модель: **nvidia/nemotron-3-super-120b-a12b:free** через OpenRouter")
     api_key = st.text_input("OpenRouter API ключ", type="password",
                             help="Получить на openrouter.ai/keys")
 
@@ -1779,9 +1790,9 @@ with tab1:
         st.markdown("---")
         if api_key:
             if st.button("🤖 Интерпретировать результат (AI)", type="secondary"):
-                with st.spinner("OpenRouter (HY 3) анализирует синтез..."):
+                with st.spinner("OpenRouter (Nemotron Super) анализирует синтез..."):
                     comment = get_ai_comment(result, api_key)
-                    st.info(f"💬 **Комментарий AI (HY 3):**\n\n{comment}")
+                    st.info(f"💬 **Комментарий AI (Nemotron Super):**\n\n{comment}")
         else:
             st.caption(
                 "Введите API-ключ OpenRouter в боковой панели для AI-интерпретации."
