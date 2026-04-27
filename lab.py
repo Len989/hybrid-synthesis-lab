@@ -251,8 +251,32 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
     for t in list(cc.parent.keys()):
         classes[cc.find(t)].append(t)
 
+    # ── НОРМАЛИЗАЦИЯ ТЕРМОВ ─────────────────────────────
+    normalizer = make_normalizer(A, action_name)
+    normalized_classes = {}
+    for rep, elems in classes.items():
+        norm_rep = normalizer(rep)
+        norm_elems = []
+        for e in elems:
+            norm_e = normalizer(e)
+            if norm_e not in norm_elems:
+                norm_elems.append(norm_e)
+        if norm_rep not in normalized_classes:
+            normalized_classes[norm_rep] = norm_elems
+        else:
+            normalized_classes[norm_rep].extend(norm_elems)
+            seen = set()
+            normalized_classes[norm_rep] = [
+                x for x in normalized_classes[norm_rep]
+                if not (x in seen or seen.add(x))
+            ]
+
+    classes = normalized_classes
+    # ── КОНЕЦ НОРМАЛИЗАЦИИ ─────────────────────────────
+
     # Проверка коллапса
     carrier_terms = [Term(el) for el in A.carrier]
+    carrier_terms = [normalizer(t) for t in carrier_terms]
     distinct_roots = {cc.find(t) for t in carrier_terms}
     collapsed = len(distinct_roots) <= 1
 
@@ -364,6 +388,78 @@ def get_ai_comment(result: SynthesisResult, api_key: str) -> str:
     except Exception as e:
         return f"⚠️ Не удалось получить комментарий: {str(e)[:100]}"
 
+# ═══════════════════════════════════════════════════════════════════
+# TERM NORMALIZATION (исправление структурной смерти)
+# ═══════════════════════════════════════════════════════════════════
+
+def make_normalizer(A: Atom, action_name: str) -> Callable[[Term], Term]:
+    """
+    Создаёт функцию нормализации термов на основе аксиом атома A.
+    """
+    # Собираем правила редукции из аксиом A
+    reduction_rules: Dict[Term, Term] = {}
+    
+    for left, right in A.axioms:
+        # Если левая часть — это терм с переменными, а правая — более простая
+        if len(left.args) > 0 and len(right.args) == 0:
+            # Это правило вида f(x, y) = z или f(x) = z
+            reduction_rules[left] = right
+        elif left.head in A.operations and A.operations.get(left.head, 0) > 0:
+            # Левая часть — составной терм, правая — константа или переменная
+            reduction_rules[left] = right
+    
+    # Добавляем правила для действия
+    # b · 0 = 0, b · 1 = 1 (если есть нейтральные элементы)
+    for const_name, const_arity in A.operations.items():
+        if const_arity == 0:
+            const_term = Term(const_name, [])
+            # Для каждого элемента оператора (будет подставлено позже)
+            # Пока добавляем общее правило: action(b, const) → const
+    
+    def normalize(t: Term, depth: int = 0) -> Term:
+        """Рекурсивная нормализация терма."""
+        if depth > 20:
+            return t  # защита от бесконечной рекурсии
+        
+        # Сначала нормализуем аргументы
+        if t.args:
+            normalized_args = [normalize(arg, depth + 1) for arg in t.args]
+            t = Term(t.head, normalized_args)
+        
+        # Проверяем, есть ли правило редукции для этого терма
+        # Точное совпадение
+        if t in reduction_rules:
+            return normalize(reduction_rules[t], depth + 1)
+        
+        # Проверяем по голове и структуре
+        for pattern, replacement in reduction_rules.items():
+            if pattern.head == t.head and len(pattern.args) == len(t.args):
+                # Пытаемся сопоставить
+                mapping = {}
+                matched = True
+                for p_arg, t_arg in zip(pattern.args, t.args):
+                    if p_arg.head[0].islower() and not p_arg.args:
+                        # Это переменная
+                        if p_arg.head in mapping:
+                            if mapping[p_arg.head] != t_arg:
+                                matched = False
+                                break
+                        else:
+                            mapping[p_arg.head] = t_arg
+                    elif p_arg != t_arg:
+                        matched = False
+                        break
+                
+                if matched:
+                    # Применяем замену к replacement
+                    result = replacement
+                    if mapping:
+                        result = result.substitute(mapping)
+                    return normalize(result, depth + 1)
+        
+        return t
+    
+    return normalize
 
 # ═══════════════════════════════════════════════════════════════════
 # BUILT-IN LIBRARY
