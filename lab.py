@@ -1661,18 +1661,27 @@ with tab1:
                         row = [f"**{a1}**"]
                         for a2 in atom.carrier:
                             term = Term(op_name, [Term(a1), Term(a2)])
-                            norm_term = rs.normalize(term)
                             found = False
-                            if result.cc and norm_term in result.cc.parent:
-                                root = result.cc.find(norm_term)
+                            if result.cc and term in result.cc.parent:
+                                root = result.cc.find(term)
+                                norm_root = rs.normalize(root)
                                 for rep, elems in result.classes.items():
-                                    if rep == root or root in elems or any(
-                                        result.cc.find(e) == root for e in elems
+                                    if rep == norm_root or norm_root in elems or any(
+                                        result.cc.find(e) == result.cc.find(norm_root) for e in elems
                                     ):
                                         row.append(f"`{repr(rep)}`")
                                         found = True
                                         break
+                                if not found:
+                                    for rep, elems in result.classes.items():
+                                        if rep == root or root in elems or any(
+                                            result.cc.find(e) == result.cc.find(root) for e in elems
+                                        ):
+                                            row.append(f"`{repr(rep)}`")
+                                            found = True
+                                            break
                             if not found:
+                                norm_term = rs.normalize(term)
                                 for rep, elems in result.classes.items():
                                     if norm_term in elems or any(
                                         repr(e) == repr(norm_term) for e in elems
