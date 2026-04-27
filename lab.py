@@ -10,8 +10,6 @@ from typing import List, Tuple, Dict, Set, Optional, Callable
 import json
 from datetime import datetime
 import asyncio
-from openai import OpenAI
-
 
 # ═══════════════════════════════════════════════════════════════════
 # CORE ENGINE
@@ -422,8 +420,12 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
 # AI INTERPRETER (OpenRouter SDK)
 # ═══════════════════════════════════════════════════════════════════
 
+import asyncio
+from openrouter import OpenRouter
+
+
 async def get_ai_comment_async(result: SynthesisResult, api_key: str) -> str:
-    """Получить комментарий от OpenRouter API (модель nvidia/nemotron-3-super-120b-a12b:free)."""
+    """Получить комментарий от OpenRouter SDK (модель nvidia/nemotron-3-super-120b-a12b:free)."""
     if result.collapsed:
         prompt = f"""Ты — эксперт по абстрактной алгебре и теории категорий.
 Синтез двух алгебраических структур привёл к КОЛЛАПСУ — все элементы носителя отождествились.
@@ -453,54 +455,47 @@ async def get_ai_comment_async(result: SynthesisResult, api_key: str) -> str:
 Отвечай на русском."""
 
     try:
-        # Инициализируем OpenRouter клиент
-        client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=api_key,
-        )
-
-        # Используем потоковую передачу
-        stream = client.chat.completions.create(
-            model="nvidia/nemotron-3-super-120b-a12b:free",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=250,
-            temperature=0.7,
-            stream=True,
-        )
-
-        response = ""
-        reasoning_tokens = None
+        openrouter = OpenRouter(api_key=api_key)
         
-        for chunk in stream:
-            content = chunk.choices[0].delta.content if chunk.choices and chunk.choices[0].delta else None
+        # Потоковая передача
+        stream = await openrouter.chat.send({
+            "model": "nvidia/nemotron-3-super-120b-a12b:free",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "stream": True
+        })
+        
+        response = ""
+        async for chunk in stream:
+            content = chunk.choices[0]?.delta?.content if chunk.choices and chunk.choices[0].delta else None
             if content:
                 response += content
-
+            
             # Usage information comes in the final chunk
-            if hasattr(chunk, 'usage') and chunk.usage:
-                if hasattr(chunk.usage, 'reasoning_tokens'):
-                    reasoning_tokens = chunk.usage.reasoning_tokens
-
-        if reasoning_tokens is not None:
-            st.caption(f"🧠 Reasoning tokens: {reasoning_tokens}")
-
+            if chunk.usage:
+                reasoning = chunk.usage.reasoning_tokens if hasattr(chunk.usage, 'reasoning_tokens') else None
+                if reasoning:
+                    st.caption(f"🧠 Reasoning tokens: {reasoning}")
+        
         return response.strip() if response else "⚠️ Пустой ответ от API"
-
+        
     except Exception as e:
         return f"⚠️ Не удалось получить комментарий: {str(e)[:100]}"
 
 
 def get_ai_comment(result: SynthesisResult, api_key: str) -> str:
-    """Синхронная обёртка для асинхронной функции."""
+    """Синхронная обёртка для Streamlit."""
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
-            # Если уже есть запущенный event loop, используем nest_asyncio
             import nest_asyncio
             nest_asyncio.apply()
         return loop.run_until_complete(get_ai_comment_async(result, api_key))
     except RuntimeError:
-        # Если нет event loop, создаём новый
         return asyncio.run(get_ai_comment_async(result, api_key))
 
 
