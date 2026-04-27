@@ -509,8 +509,8 @@ def create_builtin_library() -> Dict[str, Atom]:
     # СЛОЙ 1: КОЛЬЦА, ПОЛЯ, МОДУЛИ, АЛГЕБРЫ
     # ═══════════════════════════════════════════════════════════════
 
-# ── Кольцо Z₄ (не поле — 2·2=0, есть делители нуля) ──
-Z4_ring = Atom(
+    # ── Кольцо Z₄ (не поле — 2·2=0, есть делители нуля) ──
+    Z4_ring = Atom(
     name="Z₄ (ring)",
     carrier=["0", "1", "2", "3"],
     operations={"+": 2, "0": 0, "-": 1, "*": 2, "1": 0},
@@ -551,7 +551,7 @@ Z4_ring = Atom(
 lib[Z4_ring.name] = Z4_ring
 
 # ── Поле Z₃ (с мультипликативной группой) ──
-Z3_field = Atom(
+    Z3_field = Atom(
     name="Z₃ (field)",
     carrier=["0", "1", "2"],
     operations={"+": 2, "0": 0, "-": 1, "*": 2, "1": 0},
@@ -579,7 +579,7 @@ Z3_field = Atom(
 lib[Z3_field.name] = Z3_field
 
 # ── Векторное пространство V₂ над GF(2) ──
-V2_GF2 = Atom(
+    V2_GF2 = Atom(
     name="V₂ over GF(2)",
     carrier=["0", "e1", "e2", "e1+e2"],
     operations={"+": 2, "0": 0, "-": 1},
@@ -609,7 +609,7 @@ lib[V2_GF2.name] = V2_GF2
 # ── Кольцо с нильпотентом Z₄[x]/(x²) ──
 # Элементы: a + bx, где a,b ∈ {0,1,2,3}
 # Упрощаем до кольца дуальных чисел над Z₂: a + bε, ε²=0
-Dual_Z2 = Atom(
+    Dual_Z2 = Atom(
     name="Dual numbers over Z₂",
     carrier=["0", "1", "ε", "1+ε"],
     operations={"+": 2, "0": 0, "-": 1, "*": 2, "1": 0},
@@ -650,7 +650,7 @@ lib[Dual_Z2.name] = Dual_Z2
 
 # ── Алгебра Гейтинга (интуиционистская логика) ──
 # Трёхэлементная цепь: 0 < a < 1
-Heyting3 = Atom(
+    Heyting3 = Atom(
     name="Heyting Algebra (3-chain)",
     carrier=["0", "a", "1"],
     operations={"∧": 2, "∨": 2, "→": 2, "0": 0, "1": 0},
@@ -684,7 +684,7 @@ lib[Heyting3.name] = Heyting3
 
 # ── MV-алгебра (многозначная логика Лукасевича) ──
 # Трёхзначная логика: {0, ½, 1}
-MV3 = Atom(
+    MV3 = Atom(
     name="MV-algebra (3-valued Łukasiewicz)",
     carrier=["0", "½", "1"],
     operations={"⊕": 2, "¬": 1, "0": 0},
@@ -709,7 +709,7 @@ MV3 = Atom(
 lib[MV3.name] = MV3
 
 # ── Свободная категория на графе-цикле (3 объекта) ──
-Cat3 = Atom(
+    Cat3 = Atom(
     name="Free Category (3-object chain)",
     carrier=["id_A", "id_B", "id_C", "f", "g", "g∘f"],
     operations={"∘": 2},
@@ -731,7 +731,7 @@ Cat3 = Atom(
 lib[Cat3.name] = Cat3
 
 # ── Категория с нулевым объектом ──
-CatZero = Atom(
+    CatZero = Atom(
     name="Category with Zero Object",
     carrier=["id_Z", "id_A", "z_AZ", "z_ZA", "z_A^2"],
     operations={"∘": 2},
@@ -750,7 +750,7 @@ lib[CatZero.name] = CatZero
 # ── Топос пучков на дискретном пространстве {p,q} ──
 # Эквивалентно категории Set^{p,q} — пары множеств
 # Упрощаем до конкретного топоса с двумя точками
-Topos2 = Atom(
+    Topos2 = Atom(
     name="Topos Sh({p,q})",
     carrier=["∅_∅", "∅_{q}", "{p}_∅", "{p}_{q}"],
     operations={"∧": 2, "∨": 2, "→": 2, "Ω": 0},
@@ -777,7 +777,7 @@ lib[Topos2.name] = Topos2
 # Матрицы 2×2 со следом 0 над Z₂
 # Базис: e = [[0,1],[0,0]], f = [[0,0],[1,0]], h = [[1,0],[0,-1]]
 # Скобка Ли: [e,f]=h, [h,e]=e, [h,f]=f (в Z₂: 1=-1)
-sl2_Z2 = Atom(
+    sl2_Z2 = Atom(
     name="sl(2, Z₂)",
     carrier=["0", "e", "f", "h", "e+f", "e+h", "f+h", "e+f+h"],
     operations={"+": 2, "0": 0, "-": 1, "[_,_]": 2},
@@ -826,7 +826,7 @@ lib[sl2_Z2.name] = sl2_Z2
 # Алгебра симметрических матриц 2×2 над Z₂
 # Базис: I=[[1,0],[0,1]], A=[[1,0],[0,0]], B=[[0,1],[1,0]]
 # Йорданово произведение: X◦Y = (XY+YX)/2 (в Z₂ деление на 2 тривиально)
-Jordan_Z2 = Atom(
+    Jordan_Z2 = Atom(
     name="Jordan algebra (sym 2×2/Z₂)",
     carrier=["0", "I", "A", "B", "I+A", "I+B", "A+B", "I+A+B"],
     operations={"+": 2, "0": 0, "-": 1, "◦": 2},
@@ -871,7 +871,7 @@ lib[Jordan_Z2.name] = Jordan_Z2
 # Базис: 1, e1, e2, e1e2 (кватернионы над Z₂ — альтернативная, но ассоциативная)
 # Добавляем e3 для неассоциативности (октонионы)
 # Здесь — упрощённая альтернативная алгебра с 4 элементами
-Cayley_Z2 = Atom(
+    Cayley_Z2 = Atom(
     name="Cayley-Dickson over Z₂",
     carrier=["0", "1", "e1", "e2", "e1e2", "1+e1", "1+e2", "1+e1e2", "e1+e2", "e1+e1e2", "e2+e1e2", "1+e1+e2", "1+e1+e1e2", "1+e2+e1e2", "e1+e2+e1e2", "1+e1+e2+e1e2"],
     operations={"+": 2, "0": 0, "-": 1, "*": 2},
@@ -901,7 +901,7 @@ lib[Cayley_Z2.name] = Cayley_Z2
 
 # ── Коммутативная алгебра (кольцо многочленов Z₂[x]/(x²+x)) ──
 # x² = x (идемпотент)
-Idempotent_Z2 = Atom(
+    Idempotent_Z2 = Atom(
     name="Idempotent algebra Z₂[x]/(x²+x)",
     carrier=["0", "1", "x", "1+x"],
     operations={"+": 2, "0": 0, "-": 1, "*": 2, "1": 0},
@@ -935,7 +935,7 @@ lib[Idempotent_Z2.name] = Idempotent_Z2
 # ── Топус пучков на S¹ (упрощённый) ──
 # Топос функторов из категории Z₂ в Set
 # Эквивалентно Set^Z₂ — пары множеств с действием
-Topos_Z2 = Atom(
+    Topos_Z2 = Atom(
     name="Topos Set^{Z₂}",
     carrier=["0_0", "0_1", "1_0", "1_1"],
     operations={"∧": 2, "∨": 2, "→": 2, "¬": 1, "Ω": 0},
@@ -961,7 +961,7 @@ lib[Topos_Z2.name] = Topos_Z2
 
 # ── Пучок на трёхточечном пространстве (цепь) ──
 # Топология: {∅, {a}, {a,b}, {a,b,c}}
-Sheaf3 = Atom(
+    Sheaf3 = Atom(
     name="Sheaf on 3-point chain",
     carrier=["∅", "{a}", "{a,b}", "{a,b,c}"],
     operations={"∧": 2, "∨": 2, "→": 2, "1": 0},
@@ -980,7 +980,7 @@ Sheaf3 = Atom(
 lib[Sheaf3.name] = Sheaf3
 
 # ── Марковская категория (2 состояния, вероятностные морфизмы) ──
-Markov2 = Atom(
+    Markov2 = Atom(
     name="Markov Category (2 states)",
     carrier=["s0", "s1", "p_id", "p_flip", "p_0", "p_1"],
     operations={"∘": 2, "⊗": 2, "id": 0},
@@ -1002,7 +1002,7 @@ lib[Markov2.name] = Markov2
 
 # ── Эффект-алгебра (квантовая логика) ──
 # Простейшая нетривиальная эффект-алгебра: интервал [0,1] с дискретными эффектами
-Effect3 = Atom(
+    Effect3 = Atom(
     name="Effect Algebra (3 elements)",
     carrier=["0", "½", "1"],
     operations={"⊕": 2, "¬": 1, "0": 0, "1": 0},
@@ -1024,7 +1024,7 @@ Effect3 = Atom(
 lib[Effect3.name] = Effect3
 
 # ── Топос с выделенным подобъектом (классификатор) ──
-Omega2 = Atom(
+    Omega2 = Atom(
     name="Subobject Classifier Ω (2 values)",
     carrier=["false", "true"],
     operations={"∧": 2, "∨": 2, "⇒": 2, "true": 0, "false": 0},
@@ -1054,7 +1054,7 @@ lib[Omega2.name] = Omega2
 # ── Свободная магма с 1 генератором (бинарные деревья) ──
 # Носитель: все бинарные деревья из одной переменной x
 # x, x*x, (x*x)*x, x*(x*x), ...
-Magma1 = Atom(
+    Magma1 = Atom(
     name="Free Magma (1 generator, depth ≤ 2)",
     carrier=["x", "x*x", "(x*x)*x", "x*(x*x)", "(x*x)*(x*x)"],
     operations={"*": 2},
@@ -1069,7 +1069,7 @@ Magma1 = Atom(
 lib[Magma1.name] = Magma1
 
 # ── Магма с частичной ассоциативностью (первые 3 элемента) ──
-Magma3 = Atom(
+    Magma3 = Atom(
     name="Magma order 3 (partial assoc)",
     carrier=["a", "b", "c"],
     operations={"*": 2},
@@ -1089,7 +1089,7 @@ Magma3 = Atom(
 lib[Magma3.name] = Magma3
 
 # ── Коммутативная магма (неассоциативная) ──
-CommMagma = Atom(
+    CommMagma = Atom(
     name="Commutative Magma order 3",
     carrier=["0", "1", "2"],
     operations={"·": 2},
@@ -1109,7 +1109,7 @@ CommMagma = Atom(
 lib[CommMagma.name] = CommMagma
 
 # ── Свободная абелева группа Z² (два генератора) ──
-Z2_free_ab = Atom(
+    Z2_free_ab = Atom(
     name="Z ⊕ Z (free abelian, truncated)",
     carrier=["0", "a", "b", "a+b", "-a", "-b", "-a+b", "a-b", "-a-b"],
     operations={"+": 2, "0": 0, "-": 1},
@@ -1136,7 +1136,7 @@ lib[Z2_free_ab.name] = Z2_free_ab
 
 # ── C*-алгебра (упрощённая, конечномерная) ──
 # Алгебра диагональных матриц 2×2 над Z₂ с инволюцией
-Cstar2 = Atom(
+    Cstar2 = Atom(
     name="Diagonal C*-algebra over Z₂",
     carrier=["0", "I", "E1", "E2", "I+E1", "I+E2", "E1+E2", "I+E1+E2"],
     operations={"+": 2, "0": 0, "-": 1, "*": 2, "†": 1},
@@ -1167,7 +1167,7 @@ lib[Cstar2.name] = Cstar2
 
 # ── Конечное поле GF(4) ──
 # Элементы: 0, 1, ω, ω+1 (ω² = ω + 1)
-GF4 = Atom(
+    GF4 = Atom(
     name="GF(4) — Finite Field of 4 elements",
     carrier=["0", "1", "ω", "ω+1"],
     operations={"+": 2, "0": 0, "-": 1, "*": 2, "1": 0},
@@ -1196,7 +1196,7 @@ GF4 = Atom(
 lib[GF4.name] = GF4
 
 # ── Алгебра с делением (кватернионы над Z₃, упрощённые) ──
-Quat_Z3 = Atom(
+    Quat_Z3 = Atom(
     name="Quaternions over Z₃ (basis only)",
     carrier=["0", "1", "-1", "i", "-i", "j", "-j", "k", "-k"],
     operations={"+": 2, "0": 0, "-": 1, "*": 2},
@@ -1228,8 +1228,8 @@ Quat_Z3 = Atom(
 )
 lib[Quat_Z3.name] = Quat_Z3
 
-print(f"✅ Total structures in library: {len(lib)}")
-return lib
+    print(f"✅ Total structures in library: {len(lib)}")
+    return lib
 
 
 # ═══════════════════════════════════════════════════════════════════
