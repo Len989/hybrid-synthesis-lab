@@ -251,27 +251,57 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
     for t in list(cc.parent.keys()):
         classes[cc.find(t)].append(t)
 
-    # ── НОРМАЛИЗАЦИЯ ЧЕРЕЗ REWRITING ─────────────────────
+    # ── НОРМАЛИЗАЦИЯ ЧЕРЕЗ REWRITING (ФИНАЛЬНАЯ) ───────
     rs = build_rewriting_system(A, action_name)
 
-    normalized_classes = {}
-    for rep, elems in classes.items():
-        norm_rep = rs.normalize(rep)
-        norm_elems = []
-        seen = set()
-        for e in elems:
-            norm_e = rs.normalize(e)
-            if norm_e not in seen:
-                norm_elems.append(norm_e)
-                seen.add(norm_e)
-        if norm_rep not in normalized_classes:
-            normalized_classes[norm_rep] = norm_elems
-        else:
-            for e in norm_elems:
-                if e not in normalized_classes[norm_rep]:
-                    normalized_classes[norm_rep].append(e)
+    # Шаг 1: Строим отображение исходный терм -> его нормальная форма
+    term_to_normal = {}
+    for t in list(cc.parent.keys()):
+        term_to_normal[t] = rs.normalize(t)
 
-    classes = normalized_classes
+    # Шаг 2: Перестраиваем классы эквивалентности через нормальные формы
+    # Группируем все термы по их нормальной форме
+    raw_classes = defaultdict(list)
+    for t, norm_t in term_to_normal.items():
+        raw_classes[norm_t].append(t)
+
+    # Шаг 3: Объединяем классы, у которых нормальные формы эквивалентны в cc
+    final_classes = defaultdict(set)
+    visited = set()
+    for norm_rep, elems in raw_classes.items():
+        if norm_rep in visited:
+            continue
+        # Находим корень norm_rep в cc (если он там есть)
+        root = cc.find(norm_rep) if norm_rep in cc.parent else norm_rep
+        # Собираем все термы из всех классов, чьи представители эквивалентны root
+        for other_norm, other_elems in raw_classes.items():
+            other_root = cc.find(other_norm) if other_norm in cc.parent else other_norm
+            if cc.find(root) == cc.find(other_root):
+                for e in other_elems:
+                    final_classes[root].add(e)
+                visited.add(other_norm)
+        visited.add(norm_rep)
+
+    # Шаг 4: Выбираем лучшего представителя для каждого класса
+    final_classes_dict = {}
+    basic_terms = {Term(el) for el in A.carrier}
+    for op, arity in A.operations.items():
+        if arity == 0:
+            basic_terms.add(Term(op, []))
+
+    for root, elems in final_classes.items():
+        # Ищем базовый терм среди элементов
+        best = None
+        for e in elems:
+            if e in basic_terms:
+                best = e
+                break
+        if best is None:
+            # Берём самую короткую нормальную форму
+            best = min(elems, key=lambda x: len(repr(rs.normalize(x))))
+        final_classes_dict[best] = sorted(elems, key=lambda x: len(repr(x)))
+
+    classes = final_classes_dict
     # ── КОНЕЦ НОРМАЛИЗАЦИИ ─────────────────────────────
     # ── СКЛЕЙКА ДУБЛИКАТОВ ПОСЛЕ НОРМАЛИЗАЦИИ ─────────
     merged_classes = {}
