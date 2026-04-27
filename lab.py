@@ -505,6 +505,731 @@ def create_builtin_library() -> Dict[str, Atom]:
     )
     lib[Q3.name] = Q3
 
+    # ═══════════════════════════════════════════════════════════════
+# СЛОЙ 1: КОЛЬЦА, ПОЛЯ, МОДУЛИ, АЛГЕБРЫ
+# ═══════════════════════════════════════════════════════════════
+
+# ── Кольцо Z₄ (не поле — 2·2=0, есть делители нуля) ──
+Z4_ring = Atom(
+    name="Z₄ (ring)",
+    carrier=["0", "1", "2", "3"],
+    operations={"+": 2, "0": 0, "-": 1, "*": 2, "1": 0},
+    axioms=[
+        # Сложение (абелева группа Z₄)
+        (Term("+", [Term("0"), Term("0")]), Term("0")),
+        (Term("+", [Term("0"), Term("1")]), Term("1")),
+        (Term("+", [Term("0"), Term("2")]), Term("2")),
+        (Term("+", [Term("0"), Term("3")]), Term("3")),
+        (Term("+", [Term("1"), Term("0")]), Term("1")),
+        (Term("+", [Term("1"), Term("1")]), Term("2")),
+        (Term("+", [Term("1"), Term("2")]), Term("3")),
+        (Term("+", [Term("1"), Term("3")]), Term("0")),
+        (Term("+", [Term("2"), Term("0")]), Term("2")),
+        (Term("+", [Term("2"), Term("1")]), Term("3")),
+        (Term("+", [Term("2"), Term("2")]), Term("0")),
+        (Term("+", [Term("2"), Term("3")]), Term("1")),
+        (Term("+", [Term("3"), Term("0")]), Term("3")),
+        (Term("+", [Term("3"), Term("1")]), Term("0")),
+        (Term("+", [Term("3"), Term("2")]), Term("1")),
+        (Term("+", [Term("3"), Term("3")]), Term("2")),
+        (Term("-", [Term("0")]), Term("0")),
+        (Term("-", [Term("1")]), Term("3")),
+        (Term("-", [Term("2")]), Term("2")),
+        (Term("-", [Term("3")]), Term("1")),
+        # Умножение (моноид)
+        (Term("*", [Term("0"), Term("x")]), Term("0")),
+        (Term("*", [Term("x"), Term("0")]), Term("0")),
+        (Term("*", [Term("1"), Term("x")]), Term("x")),
+        (Term("*", [Term("x"), Term("1")]), Term("x")),
+        (Term("*", [Term("2"), Term("2")]), Term("0")),
+        (Term("*", [Term("2"), Term("3")]), Term("2")),
+        (Term("*", [Term("3"), Term("2")]), Term("2")),
+        (Term("*", [Term("3"), Term("3")]), Term("1")),
+    ],
+    description="Кольцо вычетов по модулю 4. Не поле (2·2=0)."
+)
+lib[Z4_ring.name] = Z4_ring
+
+# ── Поле Z₃ (с мультипликативной группой) ──
+Z3_field = Atom(
+    name="Z₃ (field)",
+    carrier=["0", "1", "2"],
+    operations={"+": 2, "0": 0, "-": 1, "*": 2, "1": 0},
+    axioms=[
+        (Term("+", [Term("0"), Term("0")]), Term("0")),
+        (Term("+", [Term("0"), Term("1")]), Term("1")),
+        (Term("+", [Term("0"), Term("2")]), Term("2")),
+        (Term("+", [Term("1"), Term("0")]), Term("1")),
+        (Term("+", [Term("1"), Term("1")]), Term("2")),
+        (Term("+", [Term("1"), Term("2")]), Term("0")),
+        (Term("+", [Term("2"), Term("0")]), Term("2")),
+        (Term("+", [Term("2"), Term("1")]), Term("0")),
+        (Term("+", [Term("2"), Term("2")]), Term("1")),
+        (Term("-", [Term("0")]), Term("0")),
+        (Term("-", [Term("1")]), Term("2")),
+        (Term("-", [Term("2")]), Term("1")),
+        (Term("*", [Term("0"), Term("x")]), Term("0")),
+        (Term("*", [Term("x"), Term("0")]), Term("0")),
+        (Term("*", [Term("1"), Term("x")]), Term("x")),
+        (Term("*", [Term("x"), Term("1")]), Term("x")),
+        (Term("*", [Term("2"), Term("2")]), Term("1")),
+    ],
+    description="Поле из трёх элементов (Z/3Z)."
+)
+lib[Z3_field.name] = Z3_field
+
+# ── Векторное пространство V₂ над GF(2) ──
+V2_GF2 = Atom(
+    name="V₂ over GF(2)",
+    carrier=["0", "e1", "e2", "e1+e2"],
+    operations={"+": 2, "0": 0, "-": 1},
+    axioms=[
+        (Term("+", [Term("0"), Term("0")]), Term("0")),
+        (Term("+", [Term("0"), Term("e1")]), Term("e1")),
+        (Term("+", [Term("0"), Term("e2")]), Term("e2")),
+        (Term("+", [Term("0"), Term("e1+e2")]), Term("e1+e2")),
+        (Term("+", [Term("e1"), Term("0")]), Term("e1")),
+        (Term("+", [Term("e1"), Term("e1")]), Term("0")),
+        (Term("+", [Term("e1"), Term("e2")]), Term("e1+e2")),
+        (Term("+", [Term("e1"), Term("e1+e2")]), Term("e2")),
+        (Term("+", [Term("e2"), Term("0")]), Term("e2")),
+        (Term("+", [Term("e2"), Term("e1")]), Term("e1+e2")),
+        (Term("+", [Term("e2"), Term("e2")]), Term("0")),
+        (Term("+", [Term("e2"), Term("e1+e2")]), Term("e1")),
+        (Term("+", [Term("e1+e2"), Term("0")]), Term("e1+e2")),
+        (Term("+", [Term("e1+e2"), Term("e1")]), Term("e2")),
+        (Term("+", [Term("e1+e2"), Term("e2")]), Term("e1")),
+        (Term("+", [Term("e1+e2"), Term("e1+e2")]), Term("0")),
+        (Term("-", [Term("x")]), Term("x")),
+    ],
+    description="Двумерное векторное пространство над GF(2). Каждый элемент — обратный себе."
+)
+lib[V2_GF2.name] = V2_GF2
+
+# ── Кольцо с нильпотентом Z₄[x]/(x²) ──
+# Элементы: a + bx, где a,b ∈ {0,1,2,3}
+# Упрощаем до кольца дуальных чисел над Z₂: a + bε, ε²=0
+Dual_Z2 = Atom(
+    name="Dual numbers over Z₂",
+    carrier=["0", "1", "ε", "1+ε"],
+    operations={"+": 2, "0": 0, "-": 1, "*": 2, "1": 0},
+    axioms=[
+        (Term("+", [Term("0"), Term("0")]), Term("0")),
+        (Term("+", [Term("0"), Term("1")]), Term("1")),
+        (Term("+", [Term("0"), Term("ε")]), Term("ε")),
+        (Term("+", [Term("0"), Term("1+ε")]), Term("1+ε")),
+        (Term("+", [Term("1"), Term("0")]), Term("1")),
+        (Term("+", [Term("1"), Term("1")]), Term("0")),
+        (Term("+", [Term("1"), Term("ε")]), Term("1+ε")),
+        (Term("+", [Term("1"), Term("1+ε")]), Term("ε")),
+        (Term("+", [Term("ε"), Term("0")]), Term("ε")),
+        (Term("+", [Term("ε"), Term("1")]), Term("1+ε")),
+        (Term("+", [Term("ε"), Term("ε")]), Term("0")),
+        (Term("+", [Term("ε"), Term("1+ε")]), Term("1")),
+        (Term("+", [Term("1+ε"), Term("0")]), Term("1+ε")),
+        (Term("+", [Term("1+ε"), Term("1")]), Term("ε")),
+        (Term("+", [Term("1+ε"), Term("ε")]), Term("1")),
+        (Term("+", [Term("1+ε"), Term("1+ε")]), Term("0")),
+        (Term("-", [Term("x")]), Term("x")),
+        (Term("*", [Term("0"), Term("x")]), Term("0")),
+        (Term("*", [Term("x"), Term("0")]), Term("0")),
+        (Term("*", [Term("1"), Term("x")]), Term("x")),
+        (Term("*", [Term("x"), Term("1")]), Term("x")),
+        (Term("*", [Term("ε"), Term("ε")]), Term("0")),
+        (Term("*", [Term("ε"), Term("1+ε")]), Term("ε")),
+        (Term("*", [Term("1+ε"), Term("ε")]), Term("ε")),
+        (Term("*", [Term("1+ε"), Term("1+ε")]), Term("1")),
+    ],
+    description="Кольцо дуальных чисел над Z₂. ε²=0. Содержит нильпотент."
+)
+lib[Dual_Z2.name] = Dual_Z2
+
+# ═══════════════════════════════════════════════════════════════
+# СЛОЙ 2: РЕШЁТКИ, АЛГЕБРЫ ЛОГИКИ, КАТЕГОРИИ
+# ═══════════════════════════════════════════════════════════════
+
+# ── Алгебра Гейтинга (интуиционистская логика) ──
+# Трёхэлементная цепь: 0 < a < 1
+Heyting3 = Atom(
+    name="Heyting Algebra (3-chain)",
+    carrier=["0", "a", "1"],
+    operations={"∧": 2, "∨": 2, "→": 2, "0": 0, "1": 0},
+    axioms=[
+        # ∧ (минимум в цепи)
+        (Term("∧", [Term("0"), Term("x")]), Term("0")),
+        (Term("∧", [Term("x"), Term("0")]), Term("0")),
+        (Term("∧", [Term("1"), Term("x")]), Term("x")),
+        (Term("∧", [Term("x"), Term("1")]), Term("x")),
+        (Term("∧", [Term("a"), Term("a")]), Term("a")),
+        # ∨ (максимум в цепи)
+        (Term("∨", [Term("0"), Term("x")]), Term("x")),
+        (Term("∨", [Term("x"), Term("0")]), Term("x")),
+        (Term("∨", [Term("1"), Term("x")]), Term("1")),
+        (Term("∨", [Term("x"), Term("1")]), Term("1")),
+        (Term("∨", [Term("a"), Term("a")]), Term("a")),
+        # Импликация Гейтинга
+        (Term("→", [Term("0"), Term("x")]), Term("1")),
+        (Term("→", [Term("1"), Term("x")]), Term("x")),
+        (Term("→", [Term("x"), Term("1")]), Term("1")),
+        (Term("→", [Term("a"), Term("0")]), Term("0")),
+        (Term("→", [Term("a"), Term("a")]), Term("1")),
+        (Term("→", [Term("a"), Term("1")]), Term("1")),
+        (Term("→", [Term("0"), Term("a")]), Term("1")),
+        (Term("→", [Term("1"), Term("a")]), Term("a")),
+        (Term("→", [Term("1"), Term("0")]), Term("0")),
+    ],
+    description="Трёхэлементная алгебра Гейтинга (интуиционистская логика). Импликация не определена через ¬."
+)
+lib[Heyting3.name] = Heyting3
+
+# ── MV-алгебра (многозначная логика Лукасевича) ──
+# Трёхзначная логика: {0, ½, 1}
+MV3 = Atom(
+    name="MV-algebra (3-valued Łukasiewicz)",
+    carrier=["0", "½", "1"],
+    operations={"⊕": 2, "¬": 1, "0": 0},
+    axioms=[
+        # ⊕ (сильная дизъюнкция: min(1, x+y))
+        (Term("⊕", [Term("0"), Term("0")]), Term("0")),
+        (Term("⊕", [Term("0"), Term("½")]), Term("½")),
+        (Term("⊕", [Term("0"), Term("1")]), Term("1")),
+        (Term("⊕", [Term("½"), Term("0")]), Term("½")),
+        (Term("⊕", [Term("½"), Term("½")]), Term("1")),
+        (Term("⊕", [Term("½"), Term("1")]), Term("1")),
+        (Term("⊕", [Term("1"), Term("0")]), Term("1")),
+        (Term("⊕", [Term("1"), Term("½")]), Term("1")),
+        (Term("⊕", [Term("1"), Term("1")]), Term("1")),
+        # ¬ (отрицание: 1 - x)
+        (Term("¬", [Term("0")]), Term("1")),
+        (Term("¬", [Term("½")]), Term("½")),
+        (Term("¬", [Term("1")]), Term("0")),
+    ],
+    description="Трёхзначная MV-алгебра Łukasiewicza. Допустима небулева логика."
+)
+lib[MV3.name] = MV3
+
+# ── Свободная категория на графе-цикле (3 объекта) ──
+Cat3 = Atom(
+    name="Free Category (3-object chain)",
+    carrier=["id_A", "id_B", "id_C", "f", "g", "g∘f"],
+    operations={"∘": 2},
+    axioms=[
+        (Term("∘", [Term("id_A"), Term("f")]), Term("f")),
+        (Term("∘", [Term("f"), Term("id_A")]), Term("f")),
+        (Term("∘", [Term("id_B"), Term("f")]), Term("f")),
+        (Term("∘", [Term("f"), Term("id_B")]), Term("f")),
+        (Term("∘", [Term("id_B"), Term("g")]), Term("g")),
+        (Term("∘", [Term("g"), Term("id_B")]), Term("g")),
+        (Term("∘", [Term("id_C"), Term("g")]), Term("g")),
+        (Term("∘", [Term("g"), Term("id_C")]), Term("g")),
+        (Term("∘", [Term("g"), Term("f")]), Term("g∘f")),
+        (Term("∘", [Term("id_B"), Term("g∘f")]), Term("g∘f")),
+        (Term("∘", [Term("g∘f"), Term("id_A")]), Term("g∘f")),
+    ],
+    description="Свободная категория на графе A→B→C (3 объекта)."
+)
+lib[Cat3.name] = Cat3
+
+# ── Категория с нулевым объектом ──
+CatZero = Atom(
+    name="Category with Zero Object",
+    carrier=["id_Z", "id_A", "z_AZ", "z_ZA", "z_A^2"],
+    operations={"∘": 2},
+    axioms=[
+        (Term("∘", [Term("id_Z"), Term("z_AZ")]), Term("z_AZ")),
+        (Term("∘", [Term("z_AZ"), Term("id_A")]), Term("z_AZ")),
+        (Term("∘", [Term("id_A"), Term("z_ZA")]), Term("z_ZA")),
+        (Term("∘", [Term("z_ZA"), Term("id_Z")]), Term("z_ZA")),
+        (Term("∘", [Term("z_ZA"), Term("z_AZ")]), Term("z_A^2")),
+        (Term("∘", [Term("id_Z"), Term("z_A^2")]), Term("z_A^2")),
+    ],
+    description="Категория с нулевым объектом Z. z_AZ: A→Z, z_ZA: Z→A."
+)
+lib[CatZero.name] = CatZero
+
+# ── Топос пучков на дискретном пространстве {p,q} ──
+# Эквивалентно категории Set^{p,q} — пары множеств
+# Упрощаем до конкретного топоса с двумя точками
+Topos2 = Atom(
+    name="Topos Sh({p,q})",
+    carrier=["∅_∅", "∅_{q}", "{p}_∅", "{p}_{q}"],
+    operations={"∧": 2, "∨": 2, "→": 2, "Ω": 0},
+    axioms=[
+        # Это классифицирующие подобъекты для двух точек
+        (Term("∧", [Term("∅_∅"), Term("x")]), Term("∅_∅")),
+        (Term("∧", [Term("x"), Term("∅_∅")]), Term("∅_∅")),
+        (Term("∧", [Term("{p}_{q}"), Term("x")]), Term("x")),
+        (Term("∧", [Term("x"), Term("{p}_{q}")]), Term("x")),
+        (Term("∨", [Term("∅_∅"), Term("x")]), Term("x")),
+        (Term("∨", [Term("x"), Term("∅_∅")]), Term("x")),
+        (Term("∨", [Term("{p}_{q}"), Term("x")]), Term("{p}_{q}")),
+        (Term("∨", [Term("x"), Term("{p}_{q}")]), Term("{p}_{q}")),
+    ],
+    description="Топос пучков на двухточечном дискретном пространстве (Set²)."
+)
+lib[Topos2.name] = Topos2
+
+# ═══════════════════════════════════════════════════════════════
+# СЛОЙ 3: АЛГЕБРЫ ЛИ, ЙОРДАНОВЫ АЛГЕБРЫ, АЛЬТЕРНАТИВНЫЕ АЛГЕБРЫ
+# ═══════════════════════════════════════════════════════════════
+
+# ── Алгебра Ли sl(2, Z₂) ──
+# Матрицы 2×2 со следом 0 над Z₂
+# Базис: e = [[0,1],[0,0]], f = [[0,0],[1,0]], h = [[1,0],[0,-1]]
+# Скобка Ли: [e,f]=h, [h,e]=e, [h,f]=f (в Z₂: 1=-1)
+sl2_Z2 = Atom(
+    name="sl(2, Z₂)",
+    carrier=["0", "e", "f", "h", "e+f", "e+h", "f+h", "e+f+h"],
+    operations={"+": 2, "0": 0, "-": 1, "[_,_]": 2},
+    axioms=[
+        # Сложение (абелева группа Z₂³)
+        (Term("+", [Term("0"), Term("x")]), Term("x")),
+        (Term("+", [Term("x"), Term("0")]), Term("x")),
+        (Term("+", [Term("e"), Term("e")]), Term("0")),
+        (Term("+", [Term("f"), Term("f")]), Term("0")),
+        (Term("+", [Term("h"), Term("h")]), Term("0")),
+        (Term("+", [Term("e"), Term("f")]), Term("e+f")),
+        (Term("+", [Term("e"), Term("h")]), Term("e+h")),
+        (Term("+", [Term("f"), Term("h")]), Term("f+h")),
+        (Term("+", [Term("e"), Term("e+f")]), Term("f")),
+        (Term("+", [Term("e"), Term("e+h")]), Term("h")),
+        (Term("+", [Term("e"), Term("f+h")]), Term("e+f+h")),
+        (Term("+", [Term("f"), Term("e+f")]), Term("e")),
+        (Term("+", [Term("f"), Term("f+h")]), Term("h")),
+        (Term("+", [Term("f"), Term("e+h")]), Term("e+f+h")),
+        (Term("+", [Term("h"), Term("e+f")]), Term("e+f+h")),
+        (Term("+", [Term("h"), Term("e+h")]), Term("e")),
+        (Term("+", [Term("h"), Term("f+h")]), Term("f")),
+        (Term("+", [Term("e+f"), Term("e+h")]), Term("f+h")),
+        (Term("+", [Term("e+f"), Term("f+h")]), Term("e+h")),
+        (Term("+", [Term("e+h"), Term("f+h")]), Term("e+f")),
+        (Term("-", [Term("x")]), Term("x")),  # в Z₂ -x = x
+        # Скобка Ли
+        (Term("[_,_]", [Term("e"), Term("f")]), Term("h")),
+        (Term("[_,_]", [Term("f"), Term("e")]), Term("h")),  # [f,e] = -[e,f] = h
+        (Term("[_,_]", [Term("h"), Term("e")]), Term("e")),
+        (Term("[_,_]", [Term("e"), Term("h")]), Term("e")),
+        (Term("[_,_]", [Term("h"), Term("f")]), Term("f")),
+        (Term("[_,_]", [Term("f"), Term("h")]), Term("f")),
+        # Остальные скобки — 0
+        (Term("[_,_]", [Term("e"), Term("e")]), Term("0")),
+        (Term("[_,_]", [Term("f"), Term("f")]), Term("0")),
+        (Term("[_,_]", [Term("h"), Term("h")]), Term("0")),
+        (Term("[_,_]", [Term("0"), Term("x")]), Term("0")),
+        (Term("[_,_]", [Term("x"), Term("0")]), Term("0")),
+    ],
+    description="Алгебра Ли sl(2) над полем Z₂. 8 элементов. [e,f]=h, [h,e]=e, [h,f]=f."
+)
+lib[sl2_Z2.name] = sl2_Z2
+
+# ── Йорданова алгебра (коммутативная, неассоциативная) ──
+# Алгебра симметрических матриц 2×2 над Z₂
+# Базис: I=[[1,0],[0,1]], A=[[1,0],[0,0]], B=[[0,1],[1,0]]
+# Йорданово произведение: X◦Y = (XY+YX)/2 (в Z₂ деление на 2 тривиально)
+Jordan_Z2 = Atom(
+    name="Jordan algebra (sym 2×2/Z₂)",
+    carrier=["0", "I", "A", "B", "I+A", "I+B", "A+B", "I+A+B"],
+    operations={"+": 2, "0": 0, "-": 1, "◦": 2},
+    axioms=[
+        # Сложение (группа Z₂³)
+        (Term("+", [Term("0"), Term("x")]), Term("x")),
+        (Term("+", [Term("x"), Term("0")]), Term("x")),
+        (Term("+", [Term("I"), Term("I")]), Term("0")),
+        (Term("+", [Term("A"), Term("A")]), Term("0")),
+        (Term("+", [Term("B"), Term("B")]), Term("0")),
+        (Term("+", [Term("I"), Term("A")]), Term("I+A")),
+        (Term("+", [Term("I"), Term("B")]), Term("I+B")),
+        (Term("+", [Term("A"), Term("B")]), Term("A+B")),
+        (Term("+", [Term("I"), Term("A+B")]), Term("I+A+B")),
+        (Term("+", [Term("A"), Term("I+B")]), Term("I+A+B")),
+        (Term("+", [Term("B"), Term("I+A")]), Term("I+A+B")),
+        (Term("+", [Term("I+A"), Term("I+B")]), Term("A+B")),
+        (Term("+", [Term("I+A"), Term("A+B")]), Term("I+B")),
+        (Term("+", [Term("I+B"), Term("A+B")]), Term("I+A")),
+        (Term("-", [Term("x")]), Term("x")),
+        # Йорданово произведение (коммутативно, неассоциативно)
+        (Term("◦", [Term("0"), Term("x")]), Term("0")),
+        (Term("◦", [Term("x"), Term("0")]), Term("0")),
+        (Term("◦", [Term("I"), Term("x")]), Term("x")),
+        (Term("◦", [Term("x"), Term("I")]), Term("x")),
+        (Term("◦", [Term("A"), Term("A")]), Term("A")),
+        (Term("◦", [Term("B"), Term("B")]), Term("I")),
+        (Term("◦", [Term("A"), Term("B")]), Term("B")),
+        (Term("◦", [Term("B"), Term("A")]), Term("B")),
+        (Term("◦", [Term("A"), Term("I+A")]), Term("A")),
+        (Term("◦", [Term("B"), Term("I+B")]), Term("I+B")),
+        # Неассоциативность: (A◦B)◦B = B◦B = I, но A◦(B◦B) = A◦I = A
+        (Term("◦", [Term("◦", [Term("A"), Term("B")]), Term("B")]), Term("I")),
+        (Term("◦", [Term("A"), Term("◦", [Term("B"), Term("B")])]), Term("A")),
+    ],
+    description="Йорданова алгебра симметрических 2×2 матриц над Z₂. Коммутативна, но НЕ ассоциативна."
+)
+lib[Jordan_Z2.name] = Jordan_Z2
+
+# ── Альтернативная алгебра (октонионы над Z₂) ──
+# Упрощённая версия: алгебра Кэли-Диксона над Z₂
+# Базис: 1, e1, e2, e1e2 (кватернионы над Z₂ — альтернативная, но ассоциативная)
+# Добавляем e3 для неассоциативности (октонионы)
+# Здесь — упрощённая альтернативная алгебра с 4 элементами
+Cayley_Z2 = Atom(
+    name="Cayley-Dickson over Z₂",
+    carrier=["0", "1", "e1", "e2", "e1e2", "1+e1", "1+e2", "1+e1e2", "e1+e2", "e1+e1e2", "e2+e1e2", "1+e1+e2", "1+e1+e1e2", "1+e2+e1e2", "e1+e2+e1e2", "1+e1+e2+e1e2"],
+    operations={"+": 2, "0": 0, "-": 1, "*": 2},
+    axioms=[
+        # Сложение (группа Z₂⁴)
+        (Term("+", [Term("0"), Term("x")]), Term("x")),
+        (Term("+", [Term("x"), Term("0")]), Term("x")),
+        (Term("-", [Term("x")]), Term("x")),
+        # Умножение кватернионов над Z₂ (альтернативное)
+        (Term("*", [Term("0"), Term("x")]), Term("0")),
+        (Term("*", [Term("x"), Term("0")]), Term("0")),
+        (Term("*", [Term("1"), Term("x")]), Term("x")),
+        (Term("*", [Term("x"), Term("1")]), Term("x")),
+        (Term("*", [Term("e1"), Term("e1")]), Term("1")),
+        (Term("*", [Term("e2"), Term("e2")]), Term("1")),
+        (Term("*", [Term("e1e2"), Term("e1e2")]), Term("1")),
+        (Term("*", [Term("e1"), Term("e2")]), Term("e1e2")),
+        (Term("*", [Term("e2"), Term("e1")]), Term("e1e2")),
+        (Term("*", [Term("e1"), Term("e1e2")]), Term("e2")),
+        (Term("*", [Term("e1e2"), Term("e1")]), Term("e2")),
+        (Term("*", [Term("e2"), Term("e1e2")]), Term("e1")),
+        (Term("*", [Term("e1e2"), Term("e2")]), Term("e1")),
+    ],
+    description="Алгебра Кэли-Диксона (кватернионы) над Z₂. Альтернативная, но НЕ ассоциативная для октонионов."
+)
+lib[Cayley_Z2.name] = Cayley_Z2
+
+# ── Коммутативная алгебра (кольцо многочленов Z₂[x]/(x²+x)) ──
+# x² = x (идемпотент)
+Idempotent_Z2 = Atom(
+    name="Idempotent algebra Z₂[x]/(x²+x)",
+    carrier=["0", "1", "x", "1+x"],
+    operations={"+": 2, "0": 0, "-": 1, "*": 2, "1": 0},
+    axioms=[
+        (Term("+", [Term("0"), Term("a")]), Term("a")),
+        (Term("+", [Term("a"), Term("0")]), Term("a")),
+        (Term("+", [Term("1"), Term("1")]), Term("0")),
+        (Term("+", [Term("x"), Term("x")]), Term("0")),
+        (Term("+", [Term("1+x"), Term("1+x")]), Term("0")),
+        (Term("+", [Term("1"), Term("x")]), Term("1+x")),
+        (Term("+", [Term("1"), Term("1+x")]), Term("x")),
+        (Term("+", [Term("x"), Term("1+x")]), Term("1")),
+        (Term("-", [Term("a")]), Term("a")),
+        (Term("*", [Term("0"), Term("a")]), Term("0")),
+        (Term("*", [Term("a"), Term("0")]), Term("0")),
+        (Term("*", [Term("1"), Term("a")]), Term("a")),
+        (Term("*", [Term("a"), Term("1")]), Term("a")),
+        (Term("*", [Term("x"), Term("x")]), Term("x")),
+        (Term("*", [Term("x"), Term("1+x")]), Term("0")),
+        (Term("*", [Term("1+x"), Term("x")]), Term("0")),
+        (Term("*", [Term("1+x"), Term("1+x")]), Term("1+x")),
+    ],
+    description="Алгебра с идемпотентом x²=x над Z₂. Изоморфна Z₂⊕Z₂."
+)
+lib[Idempotent_Z2.name] = Idempotent_Z2
+
+# ═══════════════════════════════════════════════════════════════
+# СЛОЙ 4: ТОПОСЫ, ПУЧКИ, ВЕРОЯТНОСТНЫЕ КАТЕГОРИИ
+# ═══════════════════════════════════════════════════════════════
+
+# ── Топус пучков на S¹ (упрощённый) ──
+# Топос функторов из категории Z₂ в Set
+# Эквивалентно Set^Z₂ — пары множеств с действием
+Topos_Z2 = Atom(
+    name="Topos Set^{Z₂}",
+    carrier=["0_0", "0_1", "1_0", "1_1"],
+    operations={"∧": 2, "∨": 2, "→": 2, "¬": 1, "Ω": 0},
+    axioms=[
+        # Классификатор подобъектов Ω = {0,1} с действием перестановки
+        (Term("∧", [Term("0_0"), Term("x")]), Term("0_0")),
+        (Term("∧", [Term("0_1"), Term("x")]), Term("0_1")),
+        (Term("∧", [Term("1_0"), Term("x")]), Term("x")),
+        (Term("∧", [Term("1_1"), Term("x")]), Term("x")),
+        (Term("∨", [Term("0_0"), Term("x")]), Term("x")),
+        (Term("∨", [Term("0_1"), Term("x")]), Term("x")),
+        (Term("∨", [Term("1_0"), Term("x")]), Term("1_0")),
+        (Term("∨", [Term("1_1"), Term("x")]), Term("1_1")),
+        # Инволюция (действие Z₂)
+        (Term("¬", [Term("0_0")]), Term("0_0")),
+        (Term("¬", [Term("0_1")]), Term("1_0")),
+        (Term("¬", [Term("1_0")]), Term("0_1")),
+        (Term("¬", [Term("1_1")]), Term("1_1")),
+    ],
+    description="Топос функторов Set^{Z₂} — простейший нетривиальный топос с действием группы."
+)
+lib[Topos_Z2.name] = Topos_Z2
+
+# ── Пучок на трёхточечном пространстве (цепь) ──
+# Топология: {∅, {a}, {a,b}, {a,b,c}}
+Sheaf3 = Atom(
+    name="Sheaf on 3-point chain",
+    carrier=["∅", "{a}", "{a,b}", "{a,b,c}"],
+    operations={"∧": 2, "∨": 2, "→": 2, "1": 0},
+    axioms=[
+        (Term("∧", [Term("∅"), Term("x")]), Term("∅")),
+        (Term("∧", [Term("{a,b,c}"), Term("x")]), Term("x")),
+        (Term("∧", [Term("{a}"), Term("{a,b}")]), Term("{a}")),
+        (Term("∨", [Term("∅"), Term("x")]), Term("x")),
+        (Term("∨", [Term("{a,b,c}"), Term("x")]), Term("{a,b,c}")),
+        (Term("∨", [Term("{a}"), Term("{a,b}")]), Term("{a,b}")),
+        (Term("→", [Term("∅"), Term("x")]), Term("{a,b,c}")),
+        (Term("→", [Term("x"), Term("{a,b,c}")]), Term("{a,b,c}")),
+    ],
+    description="Пучок на трёхточечном пространстве с топологией цепи."
+)
+lib[Sheaf3.name] = Sheaf3
+
+# ── Марковская категория (2 состояния, вероятностные морфизмы) ──
+Markov2 = Atom(
+    name="Markov Category (2 states)",
+    carrier=["s0", "s1", "p_id", "p_flip", "p_0", "p_1"],
+    operations={"∘": 2, "⊗": 2, "id": 0},
+    axioms=[
+        # Тождественные морфизмы
+        (Term("∘", [Term("id"), Term("x")]), Term("x")),
+        (Term("∘", [Term("x"), Term("id")]), Term("x")),
+        # Композиция вероятностных морфизмов
+        (Term("∘", [Term("p_id"), Term("p_id")]), Term("p_id")),
+        (Term("∘", [Term("p_id"), Term("p_flip")]), Term("p_flip")),
+        (Term("∘", [Term("p_flip"), Term("p_id")]), Term("p_flip")),
+        (Term("∘", [Term("p_flip"), Term("p_flip")]), Term("p_id")),
+        (Term("∘", [Term("p_0"), Term("x")]), Term("p_0")),
+        (Term("∘", [Term("p_1"), Term("x")]), Term("p_1")),
+    ],
+    description="Марковская категория на двух состояниях с вероятностными переходами."
+)
+lib[Markov2.name] = Markov2
+
+# ── Эффект-алгебра (квантовая логика) ──
+# Простейшая нетривиальная эффект-алгебра: интервал [0,1] с дискретными эффектами
+Effect3 = Atom(
+    name="Effect Algebra (3 elements)",
+    carrier=["0", "½", "1"],
+    operations={"⊕": 2, "¬": 1, "0": 0, "1": 0},
+    axioms=[
+        # Частичное сложение (определено только когда сумма ≤1)
+        (Term("⊕", [Term("0"), Term("0")]), Term("0")),
+        (Term("⊕", [Term("0"), Term("½")]), Term("½")),
+        (Term("⊕", [Term("½"), Term("0")]), Term("½")),
+        (Term("⊕", [Term("0"), Term("1")]), Term("1")),
+        (Term("⊕", [Term("1"), Term("0")]), Term("1")),
+        (Term("⊕", [Term("½"), Term("½")]), Term("1")),
+        # Ортодополнение
+        (Term("¬", [Term("0")]), Term("1")),
+        (Term("¬", [Term("½")]), Term("½")),
+        (Term("¬", [Term("1")]), Term("0")),
+    ],
+    description="Трёхэлементная эффект-алгебра. Модель квантовой логики."
+)
+lib[Effect3.name] = Effect3
+
+# ── Топос с выделенным подобъектом (классификатор) ──
+Omega2 = Atom(
+    name="Subobject Classifier Ω (2 values)",
+    carrier=["false", "true"],
+    operations={"∧": 2, "∨": 2, "⇒": 2, "true": 0, "false": 0},
+    axioms=[
+        (Term("∧", [Term("false"), Term("x")]), Term("false")),
+        (Term("∧", [Term("x"), Term("false")]), Term("false")),
+        (Term("∧", [Term("true"), Term("x")]), Term("x")),
+        (Term("∧", [Term("x"), Term("true")]), Term("x")),
+        (Term("∨", [Term("false"), Term("x")]), Term("x")),
+        (Term("∨", [Term("x"), Term("false")]), Term("x")),
+        (Term("∨", [Term("true"), Term("x")]), Term("true")),
+        (Term("∨", [Term("x"), Term("true")]), Term("true")),
+        (Term("⇒", [Term("false"), Term("x")]), Term("true")),
+        (Term("⇒", [Term("true"), Term("false")]), Term("false")),
+        (Term("⇒", [Term("true"), Term("true")]), Term("true")),
+        (Term("⇒", [Term("x"), Term("true")]), Term("true")),
+        (Term("⇒", [Term("x"), Term("x")]), Term("true")),
+    ],
+    description="Классификатор подобъектов Ω топоса Set — двухэлементная булева алгебра."
+)
+lib[Omega2.name] = Omega2
+
+# ═══════════════════════════════════════════════════════════════
+# СЛОЙ 5: МАГМЫ, ДОПОЛНИТЕЛЬНЫЕ АЛГЕБРЫ, ЭКЗОТИКА
+# ═══════════════════════════════════════════════════════════════
+
+# ── Свободная магма с 1 генератором (бинарные деревья) ──
+# Носитель: все бинарные деревья из одной переменной x
+# x, x*x, (x*x)*x, x*(x*x), ...
+Magma1 = Atom(
+    name="Free Magma (1 generator, depth ≤ 2)",
+    carrier=["x", "x*x", "(x*x)*x", "x*(x*x)", "(x*x)*(x*x)"],
+    operations={"*": 2},
+    axioms=[
+        (Term("*", [Term("x"), Term("x")]), Term("x*x")),
+        (Term("*", [Term("x*x"), Term("x")]), Term("(x*x)*x")),
+        (Term("*", [Term("x"), Term("x*x")]), Term("x*(x*x)")),
+        (Term("*", [Term("x*x"), Term("x*x")]), Term("(x*x)*(x*x)")),
+    ],
+    description="Свободная магма с одним генератором. Глубина деревьев ≤ 2. Тотально неассоциативна."
+)
+lib[Magma1.name] = Magma1
+
+# ── Магма с частичной ассоциативностью (первые 3 элемента) ──
+Magma3 = Atom(
+    name="Magma order 3 (partial assoc)",
+    carrier=["a", "b", "c"],
+    operations={"*": 2},
+    axioms=[
+        (Term("*", [Term("a"), Term("a")]), Term("a")),
+        (Term("*", [Term("a"), Term("b")]), Term("b")),
+        (Term("*", [Term("a"), Term("c")]), Term("c")),
+        (Term("*", [Term("b"), Term("a")]), Term("b")),
+        (Term("*", [Term("b"), Term("b")]), Term("c")),
+        (Term("*", [Term("b"), Term("c")]), Term("a")),
+        (Term("*", [Term("c"), Term("a")]), Term("c")),
+        (Term("*", [Term("c"), Term("b")]), Term("a")),
+        (Term("*", [Term("c"), Term("c")]), Term("b")),
+    ],
+    description="Магма порядка 3. (a*b)*c = b*c = a, но a*(b*c) = a*a = a. Частично ассоциативна."
+)
+lib[Magma3.name] = Magma3
+
+# ── Коммутативная магма (неассоциативная) ──
+CommMagma = Atom(
+    name="Commutative Magma order 3",
+    carrier=["0", "1", "2"],
+    operations={"·": 2},
+    axioms=[
+        (Term("·", [Term("0"), Term("0")]), Term("1")),
+        (Term("·", [Term("0"), Term("1")]), Term("2")),
+        (Term("·", [Term("1"), Term("0")]), Term("2")),
+        (Term("·", [Term("0"), Term("2")]), Term("0")),
+        (Term("·", [Term("2"), Term("0")]), Term("0")),
+        (Term("·", [Term("1"), Term("1")]), Term("0")),
+        (Term("·", [Term("1"), Term("2")]), Term("1")),
+        (Term("·", [Term("2"), Term("1")]), Term("1")),
+        (Term("·", [Term("2"), Term("2")]), Term("2")),
+    ],
+    description="Коммутативная магма порядка 3. Коммутативна, но НЕ ассоциативна: (0·0)·1 = 1·1 = 0, но 0·(0·1) = 0·2 = 0."
+)
+lib[CommMagma.name] = CommMagma
+
+# ── Свободная абелева группа Z² (два генератора) ──
+Z2_free_ab = Atom(
+    name="Z ⊕ Z (free abelian, truncated)",
+    carrier=["0", "a", "b", "a+b", "-a", "-b", "-a+b", "a-b", "-a-b"],
+    operations={"+": 2, "0": 0, "-": 1},
+    axioms=[
+        (Term("+", [Term("0"), Term("x")]), Term("x")),
+        (Term("+", [Term("x"), Term("0")]), Term("x")),
+        (Term("+", [Term("a"), Term("b")]), Term("a+b")),
+        (Term("+", [Term("b"), Term("a")]), Term("a+b")),
+        (Term("+", [Term("a"), Term("-a")]), Term("0")),
+        (Term("+", [Term("b"), Term("-b")]), Term("0")),
+        (Term("+", [Term("a+b"), Term("-a")]), Term("b")),
+        (Term("+", [Term("a+b"), Term("-b")]), Term("a")),
+        (Term("+", [Term("-a"), Term("-b")]), Term("-a-b")),
+        (Term("-", [Term("0")]), Term("0")),
+        (Term("-", [Term("a")]), Term("-a")),
+        (Term("-", [Term("b")]), Term("-b")),
+        (Term("-", [Term("a+b")]), Term("-a-b")),
+        (Term("-", [Term("-a")]), Term("a")),
+        (Term("-", [Term("-b")]), Term("b")),
+    ],
+    description="Свободная абелева группа ранга 2 (усечённая). Генераторы a, b."
+)
+lib[Z2_free_ab.name] = Z2_free_ab
+
+# ── C*-алгебра (упрощённая, конечномерная) ──
+# Алгебра диагональных матриц 2×2 над Z₂ с инволюцией
+Cstar2 = Atom(
+    name="Diagonal C*-algebra over Z₂",
+    carrier=["0", "I", "E1", "E2", "I+E1", "I+E2", "E1+E2", "I+E1+E2"],
+    operations={"+": 2, "0": 0, "-": 1, "*": 2, "†": 1},
+    axioms=[
+        (Term("+", [Term("0"), Term("x")]), Term("x")),
+        (Term("+", [Term("x"), Term("0")]), Term("x")),
+        (Term("-", [Term("x")]), Term("x")),
+        (Term("+", [Term("I"), Term("E1")]), Term("I+E1")),
+        (Term("+", [Term("I"), Term("E2")]), Term("I+E2")),
+        (Term("+", [Term("E1"), Term("E2")]), Term("E1+E2")),
+        (Term("*", [Term("0"), Term("x")]), Term("0")),
+        (Term("*", [Term("x"), Term("0")]), Term("0")),
+        (Term("*", [Term("I"), Term("x")]), Term("x")),
+        (Term("*", [Term("x"), Term("I")]), Term("x")),
+        (Term("*", [Term("E1"), Term("E1")]), Term("E1")),
+        (Term("*", [Term("E2"), Term("E2")]), Term("E2")),
+        (Term("*", [Term("E1"), Term("E2")]), Term("0")),
+        (Term("*", [Term("E2"), Term("E1")]), Term("0")),
+        # Инволюция (сопряжение)
+        (Term("†", [Term("0")]), Term("0")),
+        (Term("†", [Term("I")]), Term("I")),
+        (Term("†", [Term("E1")]), Term("E1")),
+        (Term("†", [Term("E2")]), Term("E2")),
+    ],
+    description="Коммутативная C*-алгебра диагональных 2×2 матриц над Z₂. Инволюция тривиальна."
+)
+lib[Cstar2.name] = Cstar2
+
+# ── Конечное поле GF(4) ──
+# Элементы: 0, 1, ω, ω+1 (ω² = ω + 1)
+GF4 = Atom(
+    name="GF(4) — Finite Field of 4 elements",
+    carrier=["0", "1", "ω", "ω+1"],
+    operations={"+": 2, "0": 0, "-": 1, "*": 2, "1": 0},
+    axioms=[
+        # Сложение (группа Z₂²)
+        (Term("+", [Term("0"), Term("x")]), Term("x")),
+        (Term("+", [Term("1"), Term("1")]), Term("0")),
+        (Term("+", [Term("ω"), Term("ω")]), Term("0")),
+        (Term("+", [Term("ω+1"), Term("ω+1")]), Term("0")),
+        (Term("+", [Term("1"), Term("ω")]), Term("ω+1")),
+        (Term("+", [Term("1"), Term("ω+1")]), Term("ω")),
+        (Term("+", [Term("ω"), Term("ω+1")]), Term("1")),
+        (Term("-", [Term("x")]), Term("x")),
+        # Умножение (ω² = ω+1)
+        (Term("*", [Term("0"), Term("x")]), Term("0")),
+        (Term("*", [Term("x"), Term("0")]), Term("0")),
+        (Term("*", [Term("1"), Term("x")]), Term("x")),
+        (Term("*", [Term("x"), Term("1")]), Term("x")),
+        (Term("*", [Term("ω"), Term("ω")]), Term("ω+1")),
+        (Term("*", [Term("ω"), Term("ω+1")]), Term("1")),
+        (Term("*", [Term("ω+1"), Term("ω")]), Term("1")),
+        (Term("*", [Term("ω+1"), Term("ω+1")]), Term("ω")),
+    ],
+    description="Конечное поле из 4 элементов. ω² = ω+1."
+)
+lib[GF4.name] = GF4
+
+# ── Алгебра с делением (кватернионы над Z₃, упрощённые) ──
+Quat_Z3 = Atom(
+    name="Quaternions over Z₃ (basis only)",
+    carrier=["0", "1", "-1", "i", "-i", "j", "-j", "k", "-k"],
+    operations={"+": 2, "0": 0, "-": 1, "*": 2},
+    axioms=[
+        (Term("+", [Term("0"), Term("x")]), Term("x")),
+        (Term("+", [Term("1"), Term("-1")]), Term("0")),
+        (Term("+", [Term("i"), Term("-i")]), Term("0")),
+        (Term("+", [Term("j"), Term("-j")]), Term("0")),
+        (Term("+", [Term("k"), Term("-k")]), Term("0")),
+        (Term("-", [Term("0")]), Term("0")),
+        (Term("-", [Term("1")]), Term("-1")),
+        (Term("-", [Term("-1")]), Term("1")),
+        (Term("-", [Term("i")]), Term("-i")),
+        (Term("-", [Term("j")]), Term("-j")),
+        (Term("-", [Term("k")]), Term("-k")),
+        (Term("*", [Term("0"), Term("x")]), Term("0")),
+        (Term("*", [Term("1"), Term("x")]), Term("x")),
+        (Term("*", [Term("i"), Term("i")]), Term("-1")),
+        (Term("*", [Term("j"), Term("j")]), Term("-1")),
+        (Term("*", [Term("k"), Term("k")]), Term("-1")),
+        (Term("*", [Term("i"), Term("j")]), Term("k")),
+        (Term("*", [Term("j"), Term("i")]), Term("-k")),
+        (Term("*", [Term("j"), Term("k")]), Term("i")),
+        (Term("*", [Term("k"), Term("j")]), Term("-i")),
+        (Term("*", [Term("k"), Term("i")]), Term("j")),
+        (Term("*", [Term("i"), Term("k")]), Term("-j")),
+    ],
+    description="Алгебра кватернионов над Z₃ (некоммутативная алгебра с делением)."
+)
+lib[Quat_Z3.name] = Quat_Z3
+
+print(f"✅ Total structures in library: {len(lib)}")
+
     return lib
 
 
@@ -532,7 +1257,41 @@ with st.sidebar:
     atom_a_name = st.selectbox("Атом A (цель)", names)
     atom_b_name = st.selectbox("Атом B (оператор)", names)
     action_name = st.text_input("Действие", "·")
-    
+    # ── Выбор действия ──────────────────────────────────────
+st.subheader("⚡ Действие")
+action_presets = {
+    "· (умножение)": "·",
+    "* (умножение)": "*",
+    "+ (сложение)": "+",
+    "∘ (композиция)": "∘",
+    "act (действие группы)": "act",
+    "scalar_mul (скалярное умножение)": "scalar_mul",
+    "evolve (эволюция)": "evolve",
+    "measure (измерение)": "measure",
+    "random_choice (случайный выбор)": "random_choice",
+    "apply (применение)": "apply",
+    "symmetry (симметрия)": "symmetry",
+    "⇒ (импликация)": "⇒",
+    "⊕ (сильная дизъюнкция)": "⊕",
+    "[_,_] (скобка Ли)": "[_,_]",
+    "◦ (йорданово произведение)": "◦",
+    "⊗ (тензорное произведение)": "⊗",
+    "conj (сопряжение)": "conj",
+    "trivial (тривиальное действие)": "trivial",
+    "▸ своё действие": "custom",
+}
+
+preset_label = st.selectbox(
+    "Тип действия",
+    list(action_presets.keys()),
+    help="Выберите тип взаимодействия. «▸ своё действие» — ввести вручную."
+)
+
+if action_presets[preset_label] == "custom":
+    action_name = st.text_input("Название своего действия", "·", key="custom_action")
+else:
+    action_name = action_presets[preset_label]
+    st.caption(f"Текущее действие: `{action_name}`")
     # API-ключ
     st.markdown("---")
     st.subheader("🤖 AI-интерпретатор")
