@@ -1662,17 +1662,17 @@ with tab1:
                                     row.append(f"`{repr(rep)}`")
                                     found = True
                                     break
-                        if not found:
-                            # Запасной вариант: ищем через все классы
-                            for rep, elems in result.classes.items():
-                                if norm_action in elems or any(
-                                repr(e) == repr(norm_action) for e in elems
-                        ):
-                                row.append(f"`{repr(rep)}`")
-                                found = True
-                                break
-                        if not found:
-                        row.append("—")
+                         if not found:
+                             # Запасной вариант: ищем через все классы
+                             for rep, elems in result.classes.items():
+                                 if norm_action in elems or any(
+                                 repr(e) == repr(norm_action) for e in elems
+                         ):
+                                 row.append(f"`{repr(rep)}`")
+                                 found = True
+                                 break
+                         if not found:
+                         row.append("—")
                     table_data.append(row)
 
                 for row in table_data:
