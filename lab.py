@@ -1572,7 +1572,7 @@ with tab1:
                             if norm_action in elems or any(
                                 repr(e) == repr(norm_action) for e in elems
                             ):
-                                row.append(f"`{repr(rep)}`")
+                                row.append(f"`{repr(rs.normalize(rep))}`")
                                 found = True
                                 break
                         if not found:
@@ -1599,7 +1599,7 @@ with tab1:
                                 if norm_term in elems or any(
                                     repr(e) == repr(norm_term) for e in elems
                                 ):
-                                    row.append(f"`{repr(rep)}`")
+                                    row.append(f"`{repr(rs.normalize(rep))}`")
                                     found = True
                                     break
                             if not found:
