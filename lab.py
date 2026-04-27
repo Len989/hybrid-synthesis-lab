@@ -173,6 +173,172 @@ class Atom:
 
 
 # ═══════════════════════════════════════════════════════════════════
+# REWRITING SYSTEM (Knuth-Bendix light)
+# ═══════════════════════════════════════════════════════════════════
+
+class RewritingSystem:
+    """Система правил редукции термов."""
+
+    def __init__(self):
+        self.rules: List[Tuple[Term, Term]] = []
+
+    def add_rule(self, left: Term, right: Term):
+        """Добавить правило: left → right."""
+        if len(repr(left)) >= len(repr(right)):
+            self.rules.append((left, right))
+        else:
+            self.rules.append((right, left))
+
+    def normalize(self, term: Term, depth: int = 0) -> Term:
+        """Применить правила редукции к терму, пока возможно."""
+        if depth > 100:
+            return term
+
+        if term.args:
+            normalized_args = [self.normalize(arg, depth + 1) for arg in term.args]
+            term = Term(term.head, normalized_args)
+
+        for pattern, replacement in self.rules:
+            mapping = self._match(pattern, term)
+            if mapping is not None:
+                result = replacement.substitute(mapping)
+                return self.normalize(result, depth + 1)
+
+        return term
+
+    def _match(self, pattern: Term, term: Term) -> Optional[Dict[str, Term]]:
+        """Сопоставить паттерн с термом. Вернуть подстановку или None."""
+        if not pattern.args and pattern.head[0].islower():
+            return {pattern.head: term}
+
+        if pattern.head != term.head or len(pattern.args) != len(term.args):
+            return None
+
+        mapping = {}
+        for p_arg, t_arg in zip(pattern.args, term.args):
+            sub_match = self._match(p_arg, t_arg)
+            if sub_match is None:
+                return None
+            for var, val in sub_match.items():
+                if var in mapping:
+                    if mapping[var] != val:
+                        return None
+                else:
+                    mapping[var] = val
+
+        return mapping
+
+
+def generalize_rules(A: Atom) -> List[Tuple[Term, Term]]:
+    """Пытается обобщить конкретные аксиомы до универсальных правил."""
+    general_rules = []
+    by_head = defaultdict(list)
+    for left, right in A.axioms:
+        if left.args:
+            by_head[left.head].append((left, right))
+
+    for head, group in by_head.items():
+        if len(group) < len(A.carrier):
+            continue
+
+        for const_name, const_arity in A.operations.items():
+            if const_arity != 0:
+                continue
+            const_term = Term(const_name, [])
+
+            covers_all = True
+            for elem in A.carrier:
+                elem_term = Term(elem)
+                test_term = Term(head, [const_term, elem_term])
+                found = False
+                for left, right in group:
+                    if left == test_term and right == elem_term:
+                        found = True
+                        break
+                if not found:
+                    test_term2 = Term(head, [elem_term, const_term])
+                    for left, right in group:
+                        if left == test_term2 and right == elem_term:
+                            found = True
+                            break
+                if not found:
+                    covers_all = False
+                    break
+
+            if covers_all:
+                var_x = Term("x")
+                general_left = Term(head, [const_term, var_x])
+                general_right = var_x
+                general_rules.append((general_left, general_right))
+
+    return general_rules
+
+
+def add_standard_rules(rs: RewritingSystem, A: Atom, action_name: str):
+    """Добавляет стандартные правила редукции для операций атома A."""
+    var_x = Term("x")
+    var_y = Term("y")
+
+    for op_name, arity in A.operations.items():
+        if arity != 2:
+            continue
+
+        for const_name, const_arity in A.operations.items():
+            if const_arity != 0:
+                continue
+            const_term = Term(const_name, [])
+
+            left_ok = all(
+                any(left == Term(op_name, [const_term, Term(elem)]) and right == Term(elem)
+                    for left, right in A.axioms)
+                for elem in A.carrier
+            )
+            right_ok = all(
+                any(left == Term(op_name, [Term(elem), const_term]) and right == Term(elem)
+                    for left, right in A.axioms)
+                for elem in A.carrier
+            )
+
+            if left_ok:
+                rs.add_rule(Term(op_name, [const_term, var_x]), var_x)
+            if right_ok:
+                rs.add_rule(Term(op_name, [var_x, const_term]), var_x)
+
+        for const_name, const_arity in A.operations.items():
+            if const_arity != 0:
+                continue
+            const_term = Term(const_name, [])
+
+            if op_name == "+" and const_name == "0":
+                if not any(rule[0] == Term(op_name, [const_term, var_x]) for rule in rs.rules):
+                    rs.add_rule(Term(op_name, [const_term, var_x]), var_x)
+                if not any(rule[0] == Term(op_name, [var_x, const_term]) for rule in rs.rules):
+                    rs.add_rule(Term(op_name, [var_x, const_term]), var_x)
+
+            if op_name == "*" and const_name == "1":
+                if not any(rule[0] == Term(op_name, [const_term, var_x]) for rule in rs.rules):
+                    rs.add_rule(Term(op_name, [const_term, var_x]), var_x)
+                if not any(rule[0] == Term(op_name, [var_x, const_term]) for rule in rs.rules):
+                    rs.add_rule(Term(op_name, [var_x, const_term]), var_x)
+
+
+def build_rewriting_system(A: Atom, action_name: str) -> RewritingSystem:
+    """Создать систему правил редукции из аксиом атома A."""
+    rs = RewritingSystem()
+
+    for left, right in A.axioms:
+        rs.add_rule(left, right)
+
+    general = generalize_rules(A)
+    for left, right in general:
+        rs.add_rule(left, right)
+
+    add_standard_rules(rs, A, action_name)
+
+    return rs
+
+
+# ═══════════════════════════════════════════════════════════════════
 # SYNTHESIS ENGINE
 # ═══════════════════════════════════════════════════════════════════
 
@@ -421,7 +587,6 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
 # AI INTERPRETER (OpenRouter SDK)
 # ═══════════════════════════════════════════════════════════════════
 
-import asyncio
 from openrouter import OpenRouter
 
 
@@ -472,7 +637,7 @@ async def get_ai_comment_async(result: SynthesisResult, api_key: str) -> str:
         
         response = ""
         async for chunk in stream:
-            content = chunk.choices[0]?.delta?.content if chunk.choices and chunk.choices[0].delta else None
+            content = chunk.choices[0].delta.content if chunk.choices and chunk.choices[0].delta else None
             if content:
                 response += content
             
@@ -498,172 +663,6 @@ def get_ai_comment(result: SynthesisResult, api_key: str) -> str:
         return loop.run_until_complete(get_ai_comment_async(result, api_key))
     except RuntimeError:
         return asyncio.run(get_ai_comment_async(result, api_key))
-
-
-# ═══════════════════════════════════════════════════════════════════
-# REWRITING SYSTEM (Knuth-Bendix light)
-# ═══════════════════════════════════════════════════════════════════
-
-class RewritingSystem:
-    """Система правил редукции термов."""
-
-    def __init__(self):
-        self.rules: List[Tuple[Term, Term]] = []
-
-    def add_rule(self, left: Term, right: Term):
-        """Добавить правило: left → right."""
-        if len(repr(left)) >= len(repr(right)):
-            self.rules.append((left, right))
-        else:
-            self.rules.append((right, left))
-
-    def normalize(self, term: Term, depth: int = 0) -> Term:
-        """Применить правила редукции к терму, пока возможно."""
-        if depth > 100:
-            return term
-
-        if term.args:
-            normalized_args = [self.normalize(arg, depth + 1) for arg in term.args]
-            term = Term(term.head, normalized_args)
-
-        for pattern, replacement in self.rules:
-            mapping = self._match(pattern, term)
-            if mapping is not None:
-                result = replacement.substitute(mapping)
-                return self.normalize(result, depth + 1)
-
-        return term
-
-    def _match(self, pattern: Term, term: Term) -> Optional[Dict[str, Term]]:
-        """Сопоставить паттерн с термом. Вернуть подстановку или None."""
-        if not pattern.args and pattern.head[0].islower():
-            return {pattern.head: term}
-
-        if pattern.head != term.head or len(pattern.args) != len(term.args):
-            return None
-
-        mapping = {}
-        for p_arg, t_arg in zip(pattern.args, term.args):
-            sub_match = self._match(p_arg, t_arg)
-            if sub_match is None:
-                return None
-            for var, val in sub_match.items():
-                if var in mapping:
-                    if mapping[var] != val:
-                        return None
-                else:
-                    mapping[var] = val
-
-        return mapping
-
-
-def generalize_rules(A: Atom) -> List[Tuple[Term, Term]]:
-    """Пытается обобщить конкретные аксиомы до универсальных правил."""
-    general_rules = []
-    by_head = defaultdict(list)
-    for left, right in A.axioms:
-        if left.args:
-            by_head[left.head].append((left, right))
-
-    for head, group in by_head.items():
-        if len(group) < len(A.carrier):
-            continue
-
-        for const_name, const_arity in A.operations.items():
-            if const_arity != 0:
-                continue
-            const_term = Term(const_name, [])
-
-            covers_all = True
-            for elem in A.carrier:
-                elem_term = Term(elem)
-                test_term = Term(head, [const_term, elem_term])
-                found = False
-                for left, right in group:
-                    if left == test_term and right == elem_term:
-                        found = True
-                        break
-                if not found:
-                    test_term2 = Term(head, [elem_term, const_term])
-                    for left, right in group:
-                        if left == test_term2 and right == elem_term:
-                            found = True
-                            break
-                if not found:
-                    covers_all = False
-                    break
-
-            if covers_all:
-                var_x = Term("x")
-                general_left = Term(head, [const_term, var_x])
-                general_right = var_x
-                general_rules.append((general_left, general_right))
-
-    return general_rules
-
-
-def add_standard_rules(rs: RewritingSystem, A: Atom, action_name: str):
-    """Добавляет стандартные правила редукции для операций атома A."""
-    var_x = Term("x")
-    var_y = Term("y")
-
-    for op_name, arity in A.operations.items():
-        if arity != 2:
-            continue
-
-        for const_name, const_arity in A.operations.items():
-            if const_arity != 0:
-                continue
-            const_term = Term(const_name, [])
-
-            left_ok = all(
-                any(left == Term(op_name, [const_term, Term(elem)]) and right == Term(elem)
-                    for left, right in A.axioms)
-                for elem in A.carrier
-            )
-            right_ok = all(
-                any(left == Term(op_name, [Term(elem), const_term]) and right == Term(elem)
-                    for left, right in A.axioms)
-                for elem in A.carrier
-            )
-
-            if left_ok:
-                rs.add_rule(Term(op_name, [const_term, var_x]), var_x)
-            if right_ok:
-                rs.add_rule(Term(op_name, [var_x, const_term]), var_x)
-
-        for const_name, const_arity in A.operations.items():
-            if const_arity != 0:
-                continue
-            const_term = Term(const_name, [])
-
-            if op_name == "+" and const_name == "0":
-                if not any(rule[0] == Term(op_name, [const_term, var_x]) for rule in rs.rules):
-                    rs.add_rule(Term(op_name, [const_term, var_x]), var_x)
-                if not any(rule[0] == Term(op_name, [var_x, const_term]) for rule in rs.rules):
-                    rs.add_rule(Term(op_name, [var_x, const_term]), var_x)
-
-            if op_name == "*" and const_name == "1":
-                if not any(rule[0] == Term(op_name, [const_term, var_x]) for rule in rs.rules):
-                    rs.add_rule(Term(op_name, [const_term, var_x]), var_x)
-                if not any(rule[0] == Term(op_name, [var_x, const_term]) for rule in rs.rules):
-                    rs.add_rule(Term(op_name, [var_x, const_term]), var_x)
-
-
-def build_rewriting_system(A: Atom, action_name: str) -> RewritingSystem:
-    """Создать систему правил редукции из аксиом атома A."""
-    rs = RewritingSystem()
-
-    for left, right in A.axioms:
-        rs.add_rule(left, right)
-
-    general = generalize_rules(A)
-    for left, right in general:
-        rs.add_rule(left, right)
-
-    add_standard_rules(rs, A, action_name)
-
-    return rs
 
 
 # ═══════════════════════════════════════════════════════════════════
