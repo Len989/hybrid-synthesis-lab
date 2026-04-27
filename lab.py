@@ -251,28 +251,55 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
     for t in list(cc.parent.keys()):
         classes[cc.find(t)].append(t)
 
-    # ── НОРМАЛИЗАЦИЯ ТЕРМОВ ─────────────────────────────
-    normalizer = make_normalizer(A, action_name)
+    # ── НОРМАЛИЗАЦИЯ ТЕРМОВ (улучшенная) ───────────────
+    # Шаг 1: Находим для каждого класса «лучшего» представителя —
+    #         базовый элемент носителя, если он там есть.
+    # Базовые элементы — это Term(el) для el в A.carrier.
+    basic_terms = {Term(el) for el in A.carrier}
+    # Добавляем нульарные операции (константы) как базовые
+    for op, arity in A.operations.items():
+        if arity == 0:
+            basic_terms.add(Term(op, []))
+
+    canonical_rep = {}
+    for rep, elems in classes.items():
+        # Ищем среди элементов класса базовый терм
+        best = None
+        for e in elems:
+            if e in basic_terms:
+                best = e
+                break
+        if best is None:
+            # Если нет базового, берём самый короткий по repr
+            best = min(elems, key=lambda x: len(repr(x)))
+        canonical_rep[rep] = best
+
+    # Шаг 2: Перестраиваем классы с новыми представителями
     normalized_classes = {}
     for rep, elems in classes.items():
-        norm_rep = normalizer(rep)
+        new_rep = canonical_rep[rep]
         norm_elems = []
+        seen = set()
         for e in elems:
-            norm_e = normalizer(e)
-            if norm_e not in norm_elems:
-                norm_elems.append(norm_e)
-        if norm_rep not in normalized_classes:
-            normalized_classes[norm_rep] = norm_elems
+            # Заменяем e на его канонического представителя, если он в другом классе
+            e_root = cc.find(e)
+            if e_root in canonical_rep:
+                e_canon = canonical_rep[e_root]
+            else:
+                e_canon = e
+            if e_canon not in seen:
+                norm_elems.append(e_canon)
+                seen.add(e_canon)
+        if new_rep not in normalized_classes:
+            normalized_classes[new_rep] = norm_elems
         else:
-            normalized_classes[norm_rep].extend(norm_elems)
-            seen = set()
-            normalized_classes[norm_rep] = [
-                x for x in normalized_classes[norm_rep]
-                if not (x in seen or seen.add(x))
-            ]
+            for e in norm_elems:
+                if e not in normalized_classes[new_rep]:
+                    normalized_classes[new_rep].append(e)
 
     classes = normalized_classes
     # ── КОНЕЦ НОРМАЛИЗАЦИИ ─────────────────────────────
+    
 
     # Проверка коллапса
     carrier_terms = [Term(el) for el in A.carrier]
