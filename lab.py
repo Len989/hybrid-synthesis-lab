@@ -251,58 +251,33 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
     for t in list(cc.parent.keys()):
         classes[cc.find(t)].append(t)
 
-    # ── НОРМАЛИЗАЦИЯ ТЕРМОВ (улучшенная) ───────────────
-    # Шаг 1: Находим для каждого класса «лучшего» представителя —
-    #         базовый элемент носителя, если он там есть.
-    # Базовые элементы — это Term(el) для el в A.carrier.
-    basic_terms = {Term(el) for el in A.carrier}
-    # Добавляем нульарные операции (константы) как базовые
-    for op, arity in A.operations.items():
-        if arity == 0:
-            basic_terms.add(Term(op, []))
+    
 
-    canonical_rep = {}
-    for rep, elems in classes.items():
-        # Ищем среди элементов класса базовый терм
-        best = None
-        for e in elems:
-            if e in basic_terms:
-                best = e
-                break
-        if best is None:
-            # Если нет базового, берём самый короткий по repr
-            best = min(elems, key=lambda x: len(repr(x)))
-        canonical_rep[rep] = best
+    # ── НОРМАЛИЗАЦИЯ ЧЕРЕЗ REWRITING ─────────────────────
+    rs = build_rewriting_system(A, action_name)
 
-    # Шаг 2: Перестраиваем классы с новыми представителями
     normalized_classes = {}
     for rep, elems in classes.items():
-        new_rep = canonical_rep[rep]
+        norm_rep = rs.normalize(rep)
         norm_elems = []
         seen = set()
         for e in elems:
-            # Заменяем e на его канонического представителя, если он в другом классе
-            e_root = cc.find(e)
-            if e_root in canonical_rep:
-                e_canon = canonical_rep[e_root]
-            else:
-                e_canon = e
-            if e_canon not in seen:
-                norm_elems.append(e_canon)
-                seen.add(e_canon)
-        if new_rep not in normalized_classes:
-            normalized_classes[new_rep] = norm_elems
+           norm_e = rs.normalize(e)
+            if norm_e not in seen:
+                norm_elems.append(norm_e)
+                seen.add(norm_e)
+        if norm_rep not in normalized_classes:
+            normalized_classes[norm_rep] = norm_elems
         else:
             for e in norm_elems:
-                if e not in normalized_classes[new_rep]:
-                    normalized_classes[new_rep].append(e)
+                 if e not in normalized_classes[norm_rep]:
+                    normalized_classes[norm_rep].append(e)
 
     classes = normalized_classes
     # ── КОНЕЦ НОРМАЛИЗАЦИИ ─────────────────────────────
-    
 
     # Проверка коллапса
-    carrier_terms = [Term(el) for el in A.carrier]
+    carrier_terms = [rs.normalize(Term(el)) for el in A.carrier]
     distinct_roots = {cc.find(t) for t in carrier_terms}
     collapsed = len(distinct_roots) <= 1
 
@@ -414,78 +389,154 @@ def get_ai_comment(result: SynthesisResult, api_key: str) -> str:
     except Exception as e:
         return f"⚠️ Не удалось получить комментарий: {str(e)[:100]}"
 
+
 # ═══════════════════════════════════════════════════════════════════
-# TERM NORMALIZATION (исправление структурной смерти)
+# REWRITING SYSTEM (Knuth-Bendix light)
 # ═══════════════════════════════════════════════════════════════════
 
-def make_normalizer(A: Atom, action_name: str) -> Callable[[Term], Term]:
-    """
-    Создаёт функцию нормализации термов на основе аксиом атома A.
-    """
-    # Собираем правила редукции из аксиом A
-    reduction_rules: Dict[Term, Term] = {}
+class RewritingSystem:
+    """Система правил редукции термов."""
+    
+    def __init__(self):
+        self.rules: List[Tuple[Term, Term]] = []
+    
+    def add_rule(self, left: Term, right: Term):
+        """Добавить правило: left → right."""
+        if len(repr(left)) >= len(repr(right)):
+            self.rules.append((left, right))
+        else:
+            self.rules.append((right, left))
+    
+    def normalize(self, term: Term, depth: int = 0) -> Term:
+        """Применить правила редукции к терму, пока возможно."""
+        if depth > 100:
+            return term
+        
+        if term.args:
+            normalized_args = [self.normalize(arg, depth + 1) for arg in term.args]
+            term = Term(term.head, normalized_args)
+        
+        for pattern, replacement in self.rules:
+            mapping = self._match(pattern, term)
+            if mapping is not None:
+                result = replacement.substitute(mapping)
+                return self.normalize(result, depth + 1)
+        
+        return term
+    
+    def _match(self, pattern: Term, term: Term) -> Optional[Dict[str, Term]]:
+        """Сопоставить паттерн с термом. Вернуть подстановку или None."""
+        if not pattern.args and pattern.head[0].islower():
+            return {pattern.head: term}
+        
+        if pattern.head != term.head or len(pattern.args) != len(term.args):
+            return None
+        
+        mapping = {}
+        for p_arg, t_arg in zip(pattern.args, term.args):
+            sub_match = self._match(p_arg, t_arg)
+            if sub_match is None:
+                return None
+            for var, val in sub_match.items():
+                if var in mapping:
+                    if mapping[var] != val:
+                        return None
+                else:
+                    mapping[var] = val
+        
+        return mapping
+
+
+def generalize_rules(A: Atom) -> List[Tuple[Term, Term]]:
+    """Пытается обобщить конкретные аксиомы до универсальных правил."""
+    general_rules = []
+    by_head = defaultdict(list)
+    for left, right in A.axioms:
+        if left.args:
+            by_head[left.head].append((left, right))
+    
+    for head, group in by_head.items():
+        if len(group) < len(A.carrier):
+            continue
+        
+        for const_name, const_arity in A.operations.items():
+            if const_arity != 0:
+                continue
+            const_term = Term(const_name, [])
+            
+            covers_all = True
+            for elem in A.carrier:
+                elem_term = Term(elem)
+                test_term = Term(head, [const_term, elem_term])
+                found = False
+                for left, right in group:
+                    if left == test_term and right == elem_term:
+                        found = True
+                        break
+                if not found:
+                    test_term2 = Term(head, [elem_term, const_term])
+                    for left, right in group:
+                        if left == test_term2 and right == elem_term:
+                            found = True
+                            break
+                if not found:
+                    covers_all = False
+                    break
+            
+            if covers_all:
+                var_x = Term("x")
+                general_left = Term(head, [const_term, var_x])
+                general_right = var_x
+                general_rules.append((general_left, general_right))
+    
+    return general_rules
+
+
+def add_standard_rules(rs: RewritingSystem, A: Atom, action_name: str):
+    """Добавляет стандартные правила редукции для операций атома A."""
+    var_x = Term("x")
+    var_y = Term("y")
+    
+    for op_name, arity in A.operations.items():
+        if arity != 2:
+            continue
+        
+        for const_name, const_arity in A.operations.items():
+            if const_arity != 0:
+                continue
+            const_term = Term(const_name, [])
+            
+            has_left_identity = all(
+                any(left == Term(op_name, [const_term, Term(elem)]) and right == Term(elem)
+                    for left, right in A.axioms)
+                for elem in A.carrier
+            )
+            has_right_identity = all(
+                any(left == Term(op_name, [Term(elem), const_term]) and right == Term(elem)
+                    for left, right in A.axioms)
+                for elem in A.carrier
+            )
+            
+            if has_left_identity:
+                rs.add_rule(Term(op_name, [const_term, var_x]), var_x)
+            if has_right_identity:
+                rs.add_rule(Term(op_name, [var_x, const_term]), var_x)
+
+
+def build_rewriting_system(A: Atom, action_name: str) -> RewritingSystem:
+    """Создать систему правил редукции из аксиом атома A."""
+    rs = RewritingSystem()
     
     for left, right in A.axioms:
-        # Если левая часть — это терм с переменными, а правая — более простая
-        if len(left.args) > 0 and len(right.args) == 0:
-            # Это правило вида f(x, y) = z или f(x) = z
-            reduction_rules[left] = right
-        elif left.head in A.operations and A.operations.get(left.head, 0) > 0:
-            # Левая часть — составной терм, правая — константа или переменная
-            reduction_rules[left] = right
+        rs.add_rule(left, right)
     
-    # Добавляем правила для действия
-    # b · 0 = 0, b · 1 = 1 (если есть нейтральные элементы)
-    for const_name, const_arity in A.operations.items():
-        if const_arity == 0:
-            const_term = Term(const_name, [])
-            # Для каждого элемента оператора (будет подставлено позже)
-            # Пока добавляем общее правило: action(b, const) → const
+    general = generalize_rules(A)
+    for left, right in general:
+        rs.add_rule(left, right)
     
-    def normalize(t: Term, depth: int = 0) -> Term:
-        """Рекурсивная нормализация терма."""
-        if depth > 20:
-            return t  # защита от бесконечной рекурсии
-        
-        # Сначала нормализуем аргументы
-        if t.args:
-            normalized_args = [normalize(arg, depth + 1) for arg in t.args]
-            t = Term(t.head, normalized_args)
-        
-        # Проверяем, есть ли правило редукции для этого терма
-        # Точное совпадение
-        if t in reduction_rules:
-            return normalize(reduction_rules[t], depth + 1)
-        
-        # Проверяем по голове и структуре
-        for pattern, replacement in reduction_rules.items():
-            if pattern.head == t.head and len(pattern.args) == len(t.args):
-                # Пытаемся сопоставить
-                mapping = {}
-                matched = True
-                for p_arg, t_arg in zip(pattern.args, t.args):
-                    if p_arg.head[0].islower() and not p_arg.args:
-                        # Это переменная
-                        if p_arg.head in mapping:
-                            if mapping[p_arg.head] != t_arg:
-                                matched = False
-                                break
-                        else:
-                            mapping[p_arg.head] = t_arg
-                    elif p_arg != t_arg:
-                        matched = False
-                        break
-                
-                if matched:
-                    # Применяем замену к replacement
-                    result = replacement
-                    if mapping:
-                        result = result.substitute(mapping)
-                    return normalize(result, depth + 1)
-        
-        return t
+    add_standard_rules(rs, A, action_name)
     
-    return normalize
+    return rs
 
 # ═══════════════════════════════════════════════════════════════════
 # BUILT-IN LIBRARY
