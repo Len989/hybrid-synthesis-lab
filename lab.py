@@ -1649,15 +1649,28 @@ with tab1:
                         action_term = Term(action_name, [Term(b_elem), Term(a_elem)])
                         norm_action = rs.normalize(action_term)
                         found = False
-                        for rep, elems in result.classes.items():
-                            if norm_action in elems or any(
+                        # Ищем терм в классах через исходный cc
+                        if norm_action in cc.parent:
+                            root = cc.find(norm_action)
+                            # Ищем класс с этим представителем
+                            for rep, elems in result.classes.items():
+                                if rep == root or root in elems or any(
+                                    cc.find(e) == root for e in elems
+                                ):
+                                    row.append(f"`{repr(rep)}`")
+                                    found = True
+                                    break
+                        if not found:
+                            # Запасной вариант: ищем через все классы
+                            for rep, elems in result.classes.items():
+                                if norm_action in elems or any(
                                 repr(e) == repr(norm_action) for e in elems
-                            ):
-                                row.append(f"`{repr(rs.normalize(rep))}`")
+                        ):
+                                row.append(f"`{repr(rep)}`")
                                 found = True
                                 break
                         if not found:
-                            row.append("—")
+                        row.append("—")
                     table_data.append(row)
 
                 for row in table_data:
@@ -1676,15 +1689,28 @@ with tab1:
                             term = Term(op_name, [Term(a1), Term(a2)])
                             norm_term = rs.normalize(term)
                             found = False
-                            for rep, elems in result.classes.items():
-                                if norm_term in elems or any(
-                                    repr(e) == repr(norm_term) for e in elems
-                                ):
-                                    row.append(f"`{repr(rs.normalize(rep))}`")
-                                    found = True
-                                    break
-                            if not found:
-                                row.append("—")
+                            # Ищем терм в классах через исходный cc
+                                if norm_action in cc.parent:
+                                    root = cc.find(norm_action)
+                                    # Ищем класс с этим представителем
+                                    for rep, elems in result.classes.items():
+                                        if rep == root or root in elems or any(
+                                            cc.find(e) == root for e in elems
+                                        ):
+                                            row.append(f"`{repr(rep)}`")
+                                            found = True
+                                            break
+                                if not found:
+                                # Запасной вариант: ищем через все классы
+                                for rep, elems in result.classes.items():
+                                    if norm_action in elems or any(
+                                        repr(e) == repr(norm_action) for e in elems
+                                    ):
+                                        row.append(f"`{repr(rep)}`")
+                                        found = True
+                                        break
+                                if not found:
+                                    row.append("—")
                         table_data.append(row)
                     for row in table_data:
                         st.write(" | ".join(row))
