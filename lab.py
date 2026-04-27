@@ -536,31 +536,55 @@ def add_standard_rules(rs: RewritingSystem, A: Atom, action_name: str):
     """Добавляет стандартные правила редукции для операций атома A."""
     var_x = Term("x")
     var_y = Term("y")
-
+    
     for op_name, arity in A.operations.items():
         if arity != 2:
             continue
-
+        
+        # Проверяем все возможные нейтральные элементы
         for const_name, const_arity in A.operations.items():
             if const_arity != 0:
                 continue
             const_term = Term(const_name, [])
-
-            has_left_identity = all(
+            
+            # Проверяем левую и правую identity
+            left_ok = all(
                 any(left == Term(op_name, [const_term, Term(elem)]) and right == Term(elem)
                     for left, right in A.axioms)
                 for elem in A.carrier
             )
-            has_right_identity = all(
+            right_ok = all(
                 any(left == Term(op_name, [Term(elem), const_term]) and right == Term(elem)
                     for left, right in A.axioms)
                 for elem in A.carrier
             )
-
-            if has_left_identity:
+            
+            if left_ok:
                 rs.add_rule(Term(op_name, [const_term, var_x]), var_x)
-            if has_right_identity:
+            if right_ok:
                 rs.add_rule(Term(op_name, [var_x, const_term]), var_x)
+        
+        # ДОБАВЛЯЕМ: если оператор называется "+" или "*", и есть константа "0" или "1",
+        # добавляем правила даже если проверка не сработала
+        # (это резервный вариант для структур, где аксиомы записаны неполно)
+        for const_name, const_arity in A.operations.items():
+            if const_arity != 0:
+                continue
+            const_term = Term(const_name, [])
+            
+            # Эвристика: если оператор "+" и константа "0", добавляем правила
+            if op_name == "+" and const_name == "0":
+                if not any(rule[0] == Term(op_name, [const_term, var_x]) for rule in rs.rules):
+                    rs.add_rule(Term(op_name, [const_term, var_x]), var_x)
+                if not any(rule[0] == Term(op_name, [var_x, const_term]) for rule in rs.rules):
+                    rs.add_rule(Term(op_name, [var_x, const_term]), var_x)
+            
+            # Эвристика: если оператор "*" и константа "1", добавляем правила
+            if op_name == "*" and const_name == "1":
+                if not any(rule[0] == Term(op_name, [const_term, var_x]) for rule in rs.rules):
+                    rs.add_rule(Term(op_name, [const_term, var_x]), var_x)
+                if not any(rule[0] == Term(op_name, [var_x, const_term]) for rule in rs.rules):
+                    rs.add_rule(Term(op_name, [var_x, const_term]), var_x)
 
 
 def build_rewriting_system(A: Atom, action_name: str) -> RewritingSystem:
