@@ -443,7 +443,6 @@ def build_synthesis_graph(result: SynthesisResult) -> plt.Figure:
     B = result.parent_B
     action_name = result.action_name
 
-    # Цвета для узлов
     A_carrier_set = set(A.carrier) if A else set()
     B_carrier_set = set(B.carrier) if B else set()
 
@@ -456,42 +455,43 @@ def build_synthesis_graph(result: SynthesisResult) -> plt.Figure:
         G.add_node(rep_str)
         node_labels[rep_str] = rep_str
 
-        # Размер узла от количества термов
-        size = float(min(300 + len(elems) * 10, 2000))
+        # Размер узла
+        size = 300.0 + float(len(elems)) * 10.0
+        if size > 2000.0:
+            size = 2000.0
         node_sizes.append(size)
 
-        # Цвет: синий = из A, зелёный = из B, фиолетовый = гибрид
+        # Цвет
         rep_head = rep.head if isinstance(rep, Term) else rep_str
         in_A = any(rep_head == el for el in A_carrier_set) or (
-            isinstance(rep, Term) and rep.head in A.operations
+            isinstance(rep, Term) and hasattr(rep, 'head') and rep.head in A.operations
         )
         in_B = any(rep_head == el for el in B_carrier_set) or (
-            isinstance(rep, Term) and rep.head in B.operations
+            isinstance(rep, Term) and hasattr(rep, 'head') and rep.head in B.operations
         )
 
         if in_A and not in_B:
-            node_colors.append('#3498db')  # синий
+            node_colors.append('#3498db')
         elif in_B and not in_A:
-            node_colors.append('#2ecc71')  # зелёный
+            node_colors.append('#2ecc71')
         elif in_A and in_B:
-            node_colors.append('#9b59b6')  # фиолетовый
+            node_colors.append('#9b59b6')
         else:
-            node_colors.append('#e74c3c')  # красный = теневой класс
+            node_colors.append('#e74c3c')
 
-    # Рёбра для операций
+    # Рёбра
     edge_colors = []
     edge_styles = []
 
     if A and result.cc:
+        # Операции A
         for op_name, arity in A.operations.items():
             if arity != 2:
                 continue
-            # Проверяем замкнутость
             for a1 in A.carrier:
                 for a2 in A.carrier:
                     term = Term(op_name, [Term(a1), Term(a2)])
-                    norm_term = term
-                    root = result.cc.find(norm_term) if norm_term in result.cc.parent else norm_term
+                    root = result.cc.find(term) if term in result.cc.parent else term
                     rep_str = None
                     for rep, elems in classes.items():
                         if rep == root or root in elems:
@@ -500,15 +500,14 @@ def build_synthesis_graph(result: SynthesisResult) -> plt.Figure:
                     if rep_str and repr(Term(a1)) != rep_str:
                         G.add_edge(repr(Term(a1)), rep_str)
                         edge_colors.append('#555555')
-                        edge_styles.append('solid' if rep_str in A_carrier_set else 'dashed')
+                        edge_styles.append('solid')
 
-        # Рёбра для действия
+        # Действие
         if action_name and B:
             for b_elem in B.carrier:
                 for a_elem in A.carrier:
                     action_term = Term(action_name, [Term(b_elem), Term(a_elem)])
-                    norm_action = action_term
-                    root = result.cc.find(norm_action) if norm_action in result.cc.parent else norm_action
+                    root = result.cc.find(action_term) if action_term in result.cc.parent else action_term
                     rep_str = None
                     for rep, elems in classes.items():
                         if rep == root or root in elems:
@@ -516,15 +515,22 @@ def build_synthesis_graph(result: SynthesisResult) -> plt.Figure:
                             break
                     if rep_str and repr(Term(a_elem)) != rep_str:
                         G.add_edge(repr(Term(a_elem)), rep_str)
-                        edge_colors.append('#e67e22')  # оранжевый для действия
+                        edge_colors.append('#e67e22')
                         edge_styles.append('dotted')
 
     # Позиционирование
-    pos = nx.spring_layout(G, k=2, iterations=50, seed=42)
+    if len(G.nodes) == 0:
+        fig, ax = plt.subplots(figsize=(8, 6), facecolor='#0e1117')
+        ax.text(0.5, 0.5, 'Пустой граф', color='white', ha='center', va='center')
+        ax.set_facecolor('#0e1117')
+        ax.axis('off')
+        return fig
+
+    pos = nx.spring_layout(G, k=2.0, iterations=50, seed=42)
 
     fig, ax = plt.subplots(figsize=(10, 8), facecolor='#0e1117')
 
-    # Рисуем рёбра
+    # Рёбра
     if len(G.edges) > 0:
         edge_list = list(G.edges)
         for i, (u, v) in enumerate(edge_list):
@@ -534,7 +540,7 @@ def build_synthesis_graph(result: SynthesisResult) -> plt.Figure:
                                    edge_color=color, style=style,
                                    alpha=0.5, width=1.0)
 
-    # Рисуем узлы
+    # Узлы
     nx.draw_networkx_nodes(G, pos, ax=ax,
                            node_color=node_colors,
                            node_size=node_sizes,
@@ -548,8 +554,8 @@ def build_synthesis_graph(result: SynthesisResult) -> plt.Figure:
                             font_weight='bold')
 
     ax.set_facecolor('#0e1117')
-    ax.set_title(f'Архитектурный граф: {result.atom.name if result.atom else "КОЛЛАПС"}',
-                 color='white', fontsize=12, pad=15)
+    title = result.atom.name if result.atom else "КОЛЛАПС"
+    ax.set_title(f'Архитектурный граф: {title}', color='white', fontsize=12, pad=15)
     ax.axis('off')
 
     # Легенда
@@ -558,7 +564,6 @@ def build_synthesis_graph(result: SynthesisResult) -> plt.Figure:
         mpatches.Patch(color='#2ecc71', label='Атом B (оператор)'),
         mpatches.Patch(color='#9b59b6', label='Гибридный класс'),
         mpatches.Patch(color='#e74c3c', label='Теневой класс'),
-        mpatches.Patch(color='#e67e22', label='Действие (сплошная=замкнуто, пунктир=тень)'),
     ]
     ax.legend(handles=legend_patches, loc='upper right',
               fontsize=6, facecolor='#1a1e24', edgecolor='white',
