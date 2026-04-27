@@ -338,29 +338,29 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
                 if e != best:
                     simplification_rules[e] = best
 
-# Применяем правила замены ко всем классам
-simplified_classes = {}
-for rep, elems in classes.items():
-    # Заменяем представитель
-    new_rep = simplification_rules.get(rep, rep)
-    # Заменяем все элементы в классе
-    new_elems = []
-    seen = set()
-    for e in elems:
-        new_e = simplification_rules.get(e, e)
-        if new_e not in seen:
-            new_elems.append(new_e)
-            seen.add(new_e)
-    # Если после замены представитель изменился, сливаем с существующим классом
-    if new_rep in simplified_classes:
-        for e in new_elems:
-            if e not in simplified_classes[new_rep]:
-                simplified_classes[new_rep].append(e)
-    else:
-        simplified_classes[new_rep] = new_elems
+    # Применяем правила замены ко всем классам
+    simplified_classes = {}
+    for rep, elems in classes.items():
+        # Заменяем представитель
+        new_rep = simplification_rules.get(rep, rep)
+        # Заменяем все элементы в классе
+        new_elems = []
+        seen = set()
+        for e in elems:
+            new_e = simplification_rules.get(e, e)
+            if new_e not in seen:
+                new_elems.append(new_e)
+                seen.add(new_e)
+        # Если после замены представитель изменился, сливаем с существующим классом
+        if new_rep in simplified_classes:
+            for e in new_elems:
+                if e not in simplified_classes[new_rep]:
+                    simplified_classes[new_rep].append(e)
+        else:
+            simplified_classes[new_rep] = new_elems
 
-classes = simplified_classes
-# ── КОНЕЦ ФИНАЛЬНОЙ НОРМАЛИЗАЦИИ ──────────────────────────
+    classes = simplified_classes
+    # ── КОНЕЦ ФИНАЛЬНОЙ НОРМАЛИЗАЦИИ ──────────────────────────
     # Проверка коллапса
     carrier_terms = [rs.normalize(Term(el)) for el in A.carrier]
     distinct_roots = {cc.find(t) for t in carrier_terms}
