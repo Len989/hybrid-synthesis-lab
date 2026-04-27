@@ -383,7 +383,7 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
             collapsed=True,
             classes=dict(classes),
             equations_count=len(equations),
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
             cc=cc
         )
 
@@ -427,7 +427,7 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
         collapsed=False,
         classes=dict(classes),
         equations_count=len(equations),
-        timestamp=datetime.now().isoformat()
+        timestamp=datetime.now().isoformat(),
         cc=cc
     )
 
