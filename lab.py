@@ -292,11 +292,12 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
     new_carrier = []
     carrier_repr_map = {}
     for t in carrier_terms:
-        root = cc.find(t)
-        if root not in carrier_repr_map:
-            repr_name = repr(root)
+        # Нормализуем t и используем нормализованного представителя
+        norm_t = rs.normalize(t)
+        if norm_t not in carrier_repr_map:
+            repr_name = repr(norm_t)
             new_carrier.append(repr_name)
-            carrier_repr_map[root] = repr_name
+            carrier_repr_map[norm_t] = repr_name
 
     new_operations = {}
     for op, arity in A.operations.items():
