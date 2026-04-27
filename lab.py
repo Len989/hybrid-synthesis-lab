@@ -457,7 +457,7 @@ def build_synthesis_graph(result: SynthesisResult) -> plt.Figure:
         node_labels[rep_str] = rep_str
 
         # Размер узла от количества термов
-        size = min(300 + len(elems) * 10, 2000)
+        size = float(min(300 + len(elems) * 10, 2000))
         node_sizes.append(size)
 
         # Цвет: синий = из A, зелёный = из B, фиолетовый = гибрид
