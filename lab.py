@@ -1256,42 +1256,43 @@ with st.sidebar:
     
     atom_a_name = st.selectbox("Атом A (цель)", names)
     atom_b_name = st.selectbox("Атом B (оператор)", names)
-    action_name = st.text_input("Действие", "·")
+    
     # ── Выбор действия ──────────────────────────────────────
-st.subheader("⚡ Действие")
-action_presets = {
-    "· (умножение)": "·",
-    "* (умножение)": "*",
-    "+ (сложение)": "+",
-    "∘ (композиция)": "∘",
-    "act (действие группы)": "act",
-    "scalar_mul (скалярное умножение)": "scalar_mul",
-    "evolve (эволюция)": "evolve",
-    "measure (измерение)": "measure",
-    "random_choice (случайный выбор)": "random_choice",
-    "apply (применение)": "apply",
-    "symmetry (симметрия)": "symmetry",
-    "⇒ (импликация)": "⇒",
-    "⊕ (сильная дизъюнкция)": "⊕",
-    "[_,_] (скобка Ли)": "[_,_]",
-    "◦ (йорданово произведение)": "◦",
-    "⊗ (тензорное произведение)": "⊗",
-    "conj (сопряжение)": "conj",
-    "trivial (тривиальное действие)": "trivial",
-    "▸ своё действие": "custom",
-}
+    st.subheader("⚡ Действие")
+    action_presets = {
+        "· (умножение)": "·",
+        "* (умножение)": "*",
+        "+ (сложение)": "+",
+        "∘ (композиция)": "∘",
+        "act (действие группы)": "act",
+        "scalar_mul (скалярное умножение)": "scalar_mul",
+        "evolve (эволюция)": "evolve",
+        "measure (измерение)": "measure",
+        "random_choice (случайный выбор)": "random_choice",
+        "apply (применение)": "apply",
+        "symmetry (симметрия)": "symmetry",
+        "⇒ (импликация)": "⇒",
+        "⊕ (сильная дизъюнкция)": "⊕",
+        "[_,_] (скобка Ли)": "[_,_]",
+        "◦ (йорданово произведение)": "◦",
+        "⊗ (тензорное произведение)": "⊗",
+        "conj (сопряжение)": "conj",
+        "trivial (тривиальное действие)": "trivial",
+        "▸ своё действие": "custom",
+    }
 
-preset_label = st.selectbox(
-    "Тип действия",
-    list(action_presets.keys()),
-    help="Выберите тип взаимодействия. «▸ своё действие» — ввести вручную."
-)
+    preset_label = st.selectbox(
+        "Тип действия",
+        list(action_presets.keys()),
+        help="Выберите тип взаимодействия. «▸ своё действие» — ввести вручную."
+    )
 
-if action_presets[preset_label] == "custom":
-    action_name = st.text_input("Название своего действия", "·", key="custom_action")
-else:
-    action_name = action_presets[preset_label]
-    st.caption(f"Текущее действие: `{action_name}`")
+    if action_presets[preset_label] == "custom":
+        action_name = st.text_input("Название своего действия", "·", key="custom_action")
+    else:
+        action_name = action_presets[preset_label]
+        st.caption(f"Текущее действие: `{action_name}`")
+
     # API-ключ
     st.markdown("---")
     st.subheader("🤖 AI-интерпретатор")
@@ -1310,7 +1311,7 @@ else:
         else:
             st.success(f"✅ {result.atom.name}")
             lib[result.atom.name] = result.atom
-            st.rerun()  # ← ДОБАВЬТЕ ЭТУ СТРОКУ
+            st.rerun()
 # Основная область
 tab1, tab2 = st.tabs(["🔬 Результат", "📖 Библиотека"])
 
