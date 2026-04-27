@@ -542,11 +542,11 @@ def build_synthesis_graph(result: SynthesisResult) -> plt.Figure:
 
     # Узлы
     nx.draw_networkx_nodes(G, pos, ax=ax,
-                           node_color=node_colors,
-                           node_size=node_sizes,
-                           alpha=0.85,
-                           edgecolors='white',
-                           linewidths=0.5)
+                       node_color=node_colors[:len(G.nodes)],
+                       node_size=[float(s) for s in node_sizes[:len(G.nodes)]],
+                       alpha=0.85,
+                       edgecolors='white',
+                       linewidths=0.5)
 
     # Подписи
     nx.draw_networkx_labels(G, pos, ax=ax, labels=node_labels,
