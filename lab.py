@@ -303,7 +303,6 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
 
     # Проверка коллапса
     carrier_terms = [Term(el) for el in A.carrier]
-    carrier_terms = [normalizer(t) for t in carrier_terms]
     distinct_roots = {cc.find(t) for t in carrier_terms}
     collapsed = len(distinct_roots) <= 1
 
