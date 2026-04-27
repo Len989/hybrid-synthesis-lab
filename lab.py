@@ -262,7 +262,7 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
         norm_elems = []
         seen = set()
         for e in elems:
-           norm_e = rs.normalize(e)
+            norm_e = rs.normalize(e)
             if norm_e not in seen:
                 norm_elems.append(norm_e)
                 seen.add(norm_e)
