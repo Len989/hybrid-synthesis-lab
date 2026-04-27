@@ -394,57 +394,57 @@ def get_ai_comment(result: SynthesisResult, api_key: str) -> str:
 # REWRITING SYSTEM (Knuth-Bendix light)
 # ═══════════════════════════════════════════════════════════════════
 
-class RewritingSystem:
-    """Система правил редукции термов."""
+    class RewritingSystem:
+        """Система правил редукции термов."""
     
-    def __init__(self):
-        self.rules: List[Tuple[Term, Term]] = []
+        def __init__(self):
+            self.rules: List[Tuple[Term, Term]] = []
     
-    def add_rule(self, left: Term, right: Term):
-        """Добавить правило: left → right."""
-        if len(repr(left)) >= len(repr(right)):
-            self.rules.append((left, right))
-        else:
-            self.rules.append((right, left))
+        def add_rule(self, left: Term, right: Term):
+            """Добавить правило: left → right."""
+            if len(repr(left)) >= len(repr(right)):
+                self.rules.append((left, right))
+            else:
+                self.rules.append((right, left))
     
-    def normalize(self, term: Term, depth: int = 0) -> Term:
-        """Применить правила редукции к терму, пока возможно."""
-        if depth > 100:
+        def normalize(self, term: Term, depth: int = 0) -> Term:
+            """Применить правила редукции к терму, пока возможно."""
+            if depth > 100:
+                return term
+        
+            if term.args:
+                normalized_args = [self.normalize(arg, depth + 1) for arg in term.args]
+                term = Term(term.head, normalized_args)
+        
+            for pattern, replacement in self.rules:
+                mapping = self._match(pattern, term)
+                if mapping is not None:
+                    result = replacement.substitute(mapping)
+                    return self.normalize(result, depth + 1)
+        
             return term
-        
-        if term.args:
-            normalized_args = [self.normalize(arg, depth + 1) for arg in term.args]
-            term = Term(term.head, normalized_args)
-        
-        for pattern, replacement in self.rules:
-            mapping = self._match(pattern, term)
-            if mapping is not None:
-                result = replacement.substitute(mapping)
-                return self.normalize(result, depth + 1)
-        
-        return term
     
-    def _match(self, pattern: Term, term: Term) -> Optional[Dict[str, Term]]:
-        """Сопоставить паттерн с термом. Вернуть подстановку или None."""
-        if not pattern.args and pattern.head[0].islower():
-            return {pattern.head: term}
+        def _match(self, pattern: Term, term: Term) -> Optional[Dict[str, Term]]:
+            """Сопоставить паттерн с термом. Вернуть подстановку или None."""
+            if not pattern.args and pattern.head[0].islower():
+                return {pattern.head: term}
         
-        if pattern.head != term.head or len(pattern.args) != len(term.args):
-            return None
-        
-        mapping = {}
-        for p_arg, t_arg in zip(pattern.args, term.args):
-            sub_match = self._match(p_arg, t_arg)
-            if sub_match is None:
+            if pattern.head != term.head or len(pattern.args) != len(term.args):
                 return None
-            for var, val in sub_match.items():
-                if var in mapping:
-                    if mapping[var] != val:
-                        return None
-                else:
-                    mapping[var] = val
         
-        return mapping
+            mapping = {}
+            for p_arg, t_arg in zip(pattern.args, term.args):
+                sub_match = self._match(p_arg, t_arg)
+                if sub_match is None:
+                    return None
+                for var, val in sub_match.items():
+                    if var in mapping:
+                        if mapping[var] != val:
+                            return None
+                    else:
+                        mapping[var] = val
+        
+            return mapping
 
 
 def generalize_rules(A: Atom) -> List[Tuple[Term, Term]]:
