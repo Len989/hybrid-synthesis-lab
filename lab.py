@@ -418,11 +418,11 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# AI INTERPRETER
+# AI INTERPRETER (OpenRouter API - HY 3)
 # ═══════════════════════════════════════════════════════════════════
 
 def get_ai_comment(result: SynthesisResult, api_key: str) -> str:
-    """Получить комментарий от DeepSeek API."""
+    """Получить комментарий от OpenRouter API (модель tencent/hy3-preview:free)."""
     if result.collapsed:
         prompt = f"""Ты — эксперт по абстрактной алгебре и теории категорий.
 Синтез двух алгебраических структур привёл к КОЛЛАПСУ — все элементы носителя отождествились.
@@ -452,24 +452,43 @@ def get_ai_comment(result: SynthesisResult, api_key: str) -> str:
 Отвечай на русском."""
 
     try:
+        # Используем OpenRouter API с потоковой передачей
         response = requests.post(
-            "https://api.deepseek.com/v1/chat/completions",
+            "https://openrouter.ai/api/v1/chat/completions",
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json"
             },
             json={
-                "model": "deepseek-chat",
+                "model": "tencent/hy3-preview:free",  # модель HY 3
                 "messages": [{"role": "user", "content": prompt}],
                 "max_tokens": 250,
-                "temperature": 0.7
+                "temperature": 0.7,
+                "stream": False  # Для простоты используем не-потоковый режим
             },
-            timeout=15
+            timeout=30
         )
+        
         if response.status_code == 200:
-            return response.json()["choices"][0]["message"]["content"]
+            result_data = response.json()
+            # Проверяем структуру ответа OpenRouter
+            if "choices" in result_data and len(result_data["choices"]) > 0:
+                content = result_data["choices"][0]["message"]["content"]
+                
+                # Если есть информация о reasoning tokens (для совместимости)
+                if "usage" in result_data and "reasoning_tokens" in result_data["usage"]:
+                    reasoning_tokens = result_data["usage"]["reasoning_tokens"]
+                    # Можно добавить отладочную информацию
+                    # st.caption(f"Reasoning tokens: {reasoning_tokens}")
+                
+                return content
+            else:
+                return f"⚠️ Неожиданный формат ответа API"
         else:
-            return f"⚠️ Ошибка API: {response.status_code}"
+            return f"⚠️ Ошибка API: {response.status_code} - {response.text[:200]}"
+            
+    except requests.exceptions.Timeout:
+        return f"⚠️ Таймаут API (30 сек). Попробуйте позже."
     except Exception as e:
         return f"⚠️ Не удалось получить комментарий: {str(e)[:100]}"
 
@@ -1537,11 +1556,12 @@ with st.sidebar:
         action_name = action_presets[preset_label]
         st.caption(f"Текущее действие: `{action_name}`")
 
-    # API-ключ
+    # API-ключ (теперь для OpenRouter)
     st.markdown("---")
     st.subheader("🤖 AI-интерпретатор")
-    api_key = st.text_input("DeepSeek API ключ", type="password",
-                            help="Получить на platform.deepseek.com")
+    st.caption("Используется модель: **tencent/hy3-preview:free** через OpenRouter")
+    api_key = st.text_input("OpenRouter API ключ", type="password",
+                            help="Получить на openrouter.ai/keys")
 
     if st.button("🚀 Синтезировать", type="primary", use_container_width=True):
         A = lib[atom_a_name]
@@ -1759,49 +1779,12 @@ with tab1:
         st.markdown("---")
         if api_key:
             if st.button("🤖 Интерпретировать результат (AI)", type="secondary"):
-                with st.spinner("DeepSeek анализирует синтез..."):
-                    if result.collapsed:
-                        prompt = f"""Ты — эксперт по абстрактной алгебре и теории категорий.
-Синтез двух алгебраических структур привёл к КОЛЛАПСУ — все элементы носителя отождествились.
-Наложено равенств: {result.equations_count}
-
-Дай КОРОТКИЙ ответ (2-4 предложения):
-1. Почему это интересно (это no-go theorem)?
-2. Что именно вызвало коллапс?
-3. Какие архитектурные ограничения это демонстрирует?
-Отвечай на русском."""
-                    else:
-                        atom = result.atom
-                        carrier_str = ", ".join(atom.carrier[:10])
-                        ops_str = ", ".join(
-                            f"{op}:{ar}" for op, ar in atom.operations.items()
-                        )
-                        nontrivial_count = sum(
-                            1
-                            for elems in result.classes.values()
-                            if len(elems) > 1
-                        )
-                        prompt = f"""Ты — эксперт по абстрактной алгебре и теории категорий.
-Проанализируй результат архитектурного синтеза двух структур.
-
-Родитель A: {atom.parent_atoms[0] if atom.parent_atoms else 'неизвестно'}
-Родитель B: {atom.parent_atoms[1] if len(atom.parent_atoms) > 1 else 'неизвестно'}
-Взаимодействие: {atom.interaction}
-Носитель: {carrier_str} ({len(atom.carrier)} элементов)
-Операции: {ops_str}
-Нетривиальных классов эквивалентности: {nontrivial_count}
-Всего классов: {len(result.classes)}
-
-Дай КОРОТКИЙ ответ (2-4 предложения):
-1. Что это за структура?
-2. Почему она не схлопнулась?
-3. Интересна ли она математически?
-Отвечай на русском."""
+                with st.spinner("OpenRouter (HY 3) анализирует синтез..."):
                     comment = get_ai_comment(result, api_key)
-                    st.info(f"💬 **Комментарий AI:**\n\n{comment}")
+                    st.info(f"💬 **Комментарий AI (HY 3):**\n\n{comment}")
         else:
             st.caption(
-                "Введите API-ключ DeepSeek в боковой панели для AI-интерпретации."
+                "Введите API-ключ OpenRouter в боковой панели для AI-интерпретации."
             )
 
 with tab2:
