@@ -315,6 +315,52 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
             merged_classes[rep] = elems[:]
     classes = merged_classes
     # ── КОНЕЦ СКЛЕЙКИ ДУБЛИКАТОВ ───────────────────────
+    # ── ФИНАЛЬНАЯ НОРМАЛИЗАЦИЯ: ЗАМЕНА СЛОЖНЫХ ТЕРМОВ НА БАЗОВЫЕ ─
+    # Строим правила: если в классе есть базовый элемент,
+    # все остальные термы этого класса редуцируются к нему.
+    basic_terms = {Term(el) for el in A.carrier}
+    for op, arity in A.operations.items():
+        if arity == 0:
+            basic_terms.add(Term(op, []))
+
+    # Строим словарь замен: сложный_терм → базовый_терм
+    simplification_rules = {}
+    for rep, elems in classes.items():
+        # Ищем базовый терм в этом классе
+        best = None
+        for e in elems:
+            if e in basic_terms:
+                best = e
+                break
+        if best is not None:
+            # Все остальные термы этого класса заменяем на best
+            for e in elems:
+                if e != best:
+                    simplification_rules[e] = best
+
+# Применяем правила замены ко всем классам
+simplified_classes = {}
+for rep, elems in classes.items():
+    # Заменяем представитель
+    new_rep = simplification_rules.get(rep, rep)
+    # Заменяем все элементы в классе
+    new_elems = []
+    seen = set()
+    for e in elems:
+        new_e = simplification_rules.get(e, e)
+        if new_e not in seen:
+            new_elems.append(new_e)
+            seen.add(new_e)
+    # Если после замены представитель изменился, сливаем с существующим классом
+    if new_rep in simplified_classes:
+        for e in new_elems:
+            if e not in simplified_classes[new_rep]:
+                simplified_classes[new_rep].append(e)
+    else:
+        simplified_classes[new_rep] = new_elems
+
+classes = simplified_classes
+# ── КОНЕЦ ФИНАЛЬНОЙ НОРМАЛИЗАЦИИ ──────────────────────────
     # Проверка коллапса
     carrier_terms = [rs.normalize(Term(el)) for el in A.carrier]
     distinct_roots = {cc.find(t) for t in carrier_terms}
