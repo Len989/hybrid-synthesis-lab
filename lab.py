@@ -185,6 +185,7 @@ class SynthesisResult:
     timestamp: str
     cc: Optional[CongruenceClosure] = None
 
+
 def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
     all_ops = {}
     all_ops.update(A.operations)
@@ -254,26 +255,20 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
     # ── НОРМАЛИЗАЦИЯ ЧЕРЕЗ REWRITING (ФИНАЛЬНАЯ) ───────
     rs = build_rewriting_system(A, action_name)
 
-    # Шаг 1: Строим отображение исходный терм -> его нормальная форма
     term_to_normal = {}
     for t in list(cc.parent.keys()):
         term_to_normal[t] = rs.normalize(t)
 
-    # Шаг 2: Перестраиваем классы эквивалентности через нормальные формы
-    # Группируем все термы по их нормальной форме
     raw_classes = defaultdict(list)
     for t, norm_t in term_to_normal.items():
         raw_classes[norm_t].append(t)
 
-    # Шаг 3: Объединяем классы, у которых нормальные формы эквивалентны в cc
     final_classes = defaultdict(set)
     visited = set()
     for norm_rep, elems in raw_classes.items():
         if norm_rep in visited:
             continue
-        # Находим корень norm_rep в cc (если он там есть)
         root = cc.find(norm_rep) if norm_rep in cc.parent else norm_rep
-        # Собираем все термы из всех классов, чьи представители эквивалентны root
         for other_norm, other_elems in raw_classes.items():
             other_root = cc.find(other_norm) if other_norm in cc.parent else other_norm
             if cc.find(root) == cc.find(other_root):
@@ -282,7 +277,6 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
                 visited.add(other_norm)
         visited.add(norm_rep)
 
-    # Шаг 4: Выбираем лучшего представителя для каждого класса
     final_classes_dict = {}
     basic_terms = {Term(el) for el in A.carrier}
     for op, arity in A.operations.items():
@@ -290,24 +284,22 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
             basic_terms.add(Term(op, []))
 
     for root, elems in final_classes.items():
-        # Ищем базовый терм среди элементов
         best = None
         for e in elems:
             if e in basic_terms:
                 best = e
                 break
         if best is None:
-            # Берём самую короткую нормальную форму
             best = min(elems, key=lambda x: len(repr(rs.normalize(x))))
         final_classes_dict[best] = sorted(elems, key=lambda x: len(repr(x)))
 
     classes = final_classes_dict
     # ── КОНЕЦ НОРМАЛИЗАЦИИ ─────────────────────────────
+
     # ── СКЛЕЙКА ДУБЛИКАТОВ ПОСЛЕ НОРМАЛИЗАЦИИ ─────────
     merged_classes = {}
     for rep, elems in classes.items():
         if rep in merged_classes:
-            # Добавляем элементы к существующему классу
             for e in elems:
                 if e not in merged_classes[rep]:
                     merged_classes[rep].append(e)
@@ -315,35 +307,28 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
             merged_classes[rep] = elems[:]
     classes = merged_classes
     # ── КОНЕЦ СКЛЕЙКИ ДУБЛИКАТОВ ───────────────────────
+
     # ── ФИНАЛЬНАЯ НОРМАЛИЗАЦИЯ: ЗАМЕНА СЛОЖНЫХ ТЕРМОВ НА БАЗОВЫЕ ─
-    # Строим правила: если в классе есть базовый элемент,
-    # все остальные термы этого класса редуцируются к нему.
     basic_terms = {Term(el) for el in A.carrier}
     for op, arity in A.operations.items():
         if arity == 0:
             basic_terms.add(Term(op, []))
 
-    # Строим словарь замен: сложный_терм → базовый_терм
     simplification_rules = {}
     for rep, elems in classes.items():
-        # Ищем базовый терм в этом классе
         best = None
         for e in elems:
             if e in basic_terms:
                 best = e
                 break
         if best is not None:
-            # Все остальные термы этого класса заменяем на best
             for e in elems:
                 if e != best:
                     simplification_rules[e] = best
 
-    # Применяем правила замены ко всем классам
     simplified_classes = {}
     for rep, elems in classes.items():
-        # Заменяем представитель
         new_rep = simplification_rules.get(rep, rep)
-        # Заменяем все элементы в классе
         new_elems = []
         seen = set()
         for e in elems:
@@ -351,7 +336,6 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
             if new_e not in seen:
                 new_elems.append(new_e)
                 seen.add(new_e)
-        # Если после замены представитель изменился, сливаем с существующим классом
         if new_rep in simplified_classes:
             for e in new_elems:
                 if e not in simplified_classes[new_rep]:
@@ -361,6 +345,7 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
 
     classes = simplified_classes
     # ── КОНЕЦ ФИНАЛЬНОЙ НОРМАЛИЗАЦИИ ──────────────────────────
+
     # Ещё один проход нормализации для всех представителей
     for rep in list(classes.keys()):
         norm_rep = rs.normalize(rep)
@@ -372,6 +357,7 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
             else:
                 classes[norm_rep] = classes[rep]
             del classes[rep]
+
     # Проверка коллапса
     carrier_terms = [rs.normalize(Term(el)) for el in A.carrier]
     distinct_roots = {cc.find(t) for t in carrier_terms}
@@ -391,7 +377,6 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
     new_carrier = []
     carrier_repr_map = {}
     for t in carrier_terms:
-        # Нормализуем t и используем нормализованного представителя
         norm_t = rs.normalize(t)
         if norm_t not in carrier_repr_map:
             repr_name = repr(norm_t)
@@ -595,18 +580,16 @@ def add_standard_rules(rs: RewritingSystem, A: Atom, action_name: str):
     """Добавляет стандартные правила редукции для операций атома A."""
     var_x = Term("x")
     var_y = Term("y")
-    
+
     for op_name, arity in A.operations.items():
         if arity != 2:
             continue
-        
-        # Проверяем все возможные нейтральные элементы
+
         for const_name, const_arity in A.operations.items():
             if const_arity != 0:
                 continue
             const_term = Term(const_name, [])
-            
-            # Проверяем левую и правую identity
+
             left_ok = all(
                 any(left == Term(op_name, [const_term, Term(elem)]) and right == Term(elem)
                     for left, right in A.axioms)
@@ -617,28 +600,23 @@ def add_standard_rules(rs: RewritingSystem, A: Atom, action_name: str):
                     for left, right in A.axioms)
                 for elem in A.carrier
             )
-            
+
             if left_ok:
                 rs.add_rule(Term(op_name, [const_term, var_x]), var_x)
             if right_ok:
                 rs.add_rule(Term(op_name, [var_x, const_term]), var_x)
-        
-        # ДОБАВЛЯЕМ: если оператор называется "+" или "*", и есть константа "0" или "1",
-        # добавляем правила даже если проверка не сработала
-        # (это резервный вариант для структур, где аксиомы записаны неполно)
+
         for const_name, const_arity in A.operations.items():
             if const_arity != 0:
                 continue
             const_term = Term(const_name, [])
-            
-            # Эвристика: если оператор "+" и константа "0", добавляем правила
+
             if op_name == "+" and const_name == "0":
                 if not any(rule[0] == Term(op_name, [const_term, var_x]) for rule in rs.rules):
                     rs.add_rule(Term(op_name, [const_term, var_x]), var_x)
                 if not any(rule[0] == Term(op_name, [var_x, const_term]) for rule in rs.rules):
                     rs.add_rule(Term(op_name, [var_x, const_term]), var_x)
-            
-            # Эвристика: если оператор "*" и константа "1", добавляем правила
+
             if op_name == "*" and const_name == "1":
                 if not any(rule[0] == Term(op_name, [const_term, var_x]) for rule in rs.rules):
                     rs.add_rule(Term(op_name, [const_term, var_x]), var_x)
@@ -692,14 +670,12 @@ def create_builtin_library() -> Dict[str, Atom]:
         carrier=["0", "1"],
         operations={"+": 2, "0": 0, "-": 1, "*": 2, "1": 0},
         axioms=[
-            # Сложение (абелева группа Z₂)
             (Term("+", [Term("0"), Term("0")]), Term("0")),
             (Term("+", [Term("0"), Term("1")]), Term("1")),
             (Term("+", [Term("1"), Term("0")]), Term("1")),
             (Term("+", [Term("1"), Term("1")]), Term("0")),
             (Term("-", [Term("0")]), Term("0")),
             (Term("-", [Term("1")]), Term("1")),
-            # Умножение (моноид с нулём)
             (Term("*", [Term("0"), Term("x")]), Term("0")),
             (Term("*", [Term("x"), Term("0")]), Term("0")),
             (Term("*", [Term("1"), Term("x")]), Term("x")),
@@ -1501,7 +1477,6 @@ def create_builtin_library() -> Dict[str, Atom]:
     return lib
 
 
-
 # ═══════════════════════════════════════════════════════════════════
 # STREAMLIT UI
 # ═══════════════════════════════════════════════════════════════════
@@ -1651,28 +1626,25 @@ with tab1:
                         action_term = Term(action_name, [Term(b_elem), Term(a_elem)])
                         norm_action = rs.normalize(action_term)
                         found = False
-                        # Ищем терм в классах через исходный cc
-                        if norm_action in cc.parent:
-                            root = cc.find(norm_action)
-                            # Ищем класс с этим представителем
+                        if result.cc and norm_action in result.cc.parent:
+                            root = result.cc.find(norm_action)
                             for rep, elems in result.classes.items():
                                 if rep == root or root in elems or any(
-                                    cc.find(e) == root for e in elems
+                                    result.cc.find(e) == root for e in elems
                                 ):
                                     row.append(f"`{repr(rep)}`")
                                     found = True
                                     break
-                         if not found:
-                             # Запасной вариант: ищем через все классы
-                             for rep, elems in result.classes.items():
-                                 if norm_action in elems or any(
-                                 repr(e) == repr(norm_action) for e in elems
-                         ):
-                                 row.append(f"`{repr(rep)}`")
-                                 found = True
-                                 break
-                         if not found:
-                         row.append("—")
+                        if not found:
+                            for rep, elems in result.classes.items():
+                                if norm_action in elems or any(
+                                    repr(e) == repr(norm_action) for e in elems
+                                ):
+                                    row.append(f"`{repr(rep)}`")
+                                    found = True
+                                    break
+                        if not found:
+                            row.append("—")
                     table_data.append(row)
 
                 for row in table_data:
@@ -1691,28 +1663,25 @@ with tab1:
                             term = Term(op_name, [Term(a1), Term(a2)])
                             norm_term = rs.normalize(term)
                             found = False
-                            # Ищем терм в классах через исходный cc
-                                if norm_action in cc.parent:
-                                    root = cc.find(norm_action)
-                                    # Ищем класс с этим представителем
-                                    for rep, elems in result.classes.items():
-                                        if rep == root or root in elems or any(
-                                            cc.find(e) == root for e in elems
-                                        ):
-                                            row.append(f"`{repr(rep)}`")
-                                            found = True
-                                            break
-                                if not found:
-                                # Запасной вариант: ищем через все классы
+                            if result.cc and norm_term in result.cc.parent:
+                                root = result.cc.find(norm_term)
                                 for rep, elems in result.classes.items():
-                                    if norm_action in elems or any(
-                                        repr(e) == repr(norm_action) for e in elems
+                                    if rep == root or root in elems or any(
+                                        result.cc.find(e) == root for e in elems
                                     ):
                                         row.append(f"`{repr(rep)}`")
                                         found = True
                                         break
-                                if not found:
-                                    row.append("—")
+                            if not found:
+                                for rep, elems in result.classes.items():
+                                    if norm_term in elems or any(
+                                        repr(e) == repr(norm_term) for e in elems
+                                    ):
+                                        row.append(f"`{repr(rep)}`")
+                                        found = True
+                                        break
+                            if not found:
+                                row.append("—")
                         table_data.append(row)
                     for row in table_data:
                         st.write(" | ".join(row))
@@ -1738,14 +1707,8 @@ with tab1:
                         equality_text += "\n"
                 else:
                     equality_text += "Все классы тривиальны (неожиданно).\n"
-                
+
                 st.code(equality_text, language="text")
-                col_copy1, _ = st.columns([1, 4])
-                with col_copy1:
-                    if st.button("📋 Копировать равенства", key="copy_eq"):
-                        st.session_state.copy_eq = equality_text
-                        st.success("Скопировано в буфер обмена!")
-                        st.code(equality_text, language="text")
 
             # ── Полные классы эквивалентности с кнопкой "Копировать" ──
             with st.expander("🔬 Полные классы эквивалентности", expanded=False):
@@ -1760,14 +1723,8 @@ with tab1:
                     if len(elems) > 20:
                         elems_str += f" ... (+{len(elems) - 20})"
                     classes_text += f"{repr(rep)} → {{{elems_str}}}\n"
-                
+
                 st.code(classes_text, language="text")
-                col_copy2, _ = st.columns([1, 4])
-                with col_copy2:
-                    if st.button("📋 Копировать классы", key="copy_cl"):
-                        st.session_state.copy_cl = classes_text
-                        st.success("Скопировано в буфер обмена!")
-                        st.code(classes_text, language="text")
 
             st.subheader("🔍 Проверка алгебраических свойств")
             if "+" in atom.operations and action_name in atom.operations:
