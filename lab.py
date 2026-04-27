@@ -273,7 +273,18 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
 
     classes = normalized_classes
     # ── КОНЕЦ НОРМАЛИЗАЦИИ ─────────────────────────────
-
+    # ── СКЛЕЙКА ДУБЛИКАТОВ ПОСЛЕ НОРМАЛИЗАЦИИ ─────────
+    merged_classes = {}
+    for rep, elems in classes.items():
+        if rep in merged_classes:
+            # Добавляем элементы к существующему классу
+            for e in elems:
+                if e not in merged_classes[rep]:
+                    merged_classes[rep].append(e)
+        else:
+            merged_classes[rep] = elems[:]
+    classes = merged_classes
+    # ── КОНЕЦ СКЛЕЙКИ ДУБЛИКАТОВ ───────────────────────
     # Проверка коллапса
     carrier_terms = [rs.normalize(Term(el)) for el in A.carrier]
     distinct_roots = {cc.find(t) for t in carrier_terms}
