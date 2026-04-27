@@ -10,6 +10,7 @@ from typing import List, Tuple, Dict, Set, Optional, Callable
 import json
 from datetime import datetime
 import asyncio
+import requests
 
 # ═══════════════════════════════════════════════════════════════════
 # CORE ENGINE
