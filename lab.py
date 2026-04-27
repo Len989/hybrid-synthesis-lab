@@ -388,7 +388,28 @@ def create_builtin_library() -> Dict[str, Atom]:
         description="Циклическая группа порядка 2 (аддитивная)."
     )
     lib[Z2.name] = Z2
-
+    # Z2 (ring)
+    Z2_ring = Atom(
+        name="Z₂ (ring)",
+        carrier=["0", "1"],
+        operations={"+": 2, "0": 0, "-": 1, "*": 2, "1": 0},
+        axioms=[
+        # Сложение (абелева группа Z₂)
+            (Term("+", [Term("0"), Term("0")]), Term("0")),
+            (Term("+", [Term("0"), Term("1")]), Term("1")),
+            (Term("+", [Term("1"), Term("0")]), Term("1")),
+            (Term("+", [Term("1"), Term("1")]), Term("0")),
+            (Term("-", [Term("0")]), Term("0")),
+            (Term("-", [Term("1")]), Term("1")),
+        # Умножение (моноид с нулём)
+            (Term("*", [Term("0"), Term("x")]), Term("0")),
+            (Term("*", [Term("x"), Term("0")]), Term("0")),
+            (Term("*", [Term("1"), Term("x")]), Term("x")),
+            (Term("*", [Term("x"), Term("1")]), Term("x")),
+        ],
+        description="Кольцо целых чисел по модулю 2 (поле Z₂)."
+    )
+    lib[Z2_ring.name] = Z2_ring
     # Z3 (additive)
     Z3 = Atom(
         name="Z3 (additive group)",
