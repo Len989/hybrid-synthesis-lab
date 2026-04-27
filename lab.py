@@ -361,6 +361,17 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
 
     classes = simplified_classes
     # ── КОНЕЦ ФИНАЛЬНОЙ НОРМАЛИЗАЦИИ ──────────────────────────
+    # Ещё один проход нормализации для всех представителей
+    for rep in list(classes.keys()):
+        norm_rep = rs.normalize(rep)
+        if norm_rep != rep:
+            if norm_rep in classes:
+                for e in classes[rep]:
+                    if e not in classes[norm_rep]:
+                        classes[norm_rep].append(e)
+            else:
+                classes[norm_rep] = classes[rep]
+            del classes[rep]
     # Проверка коллапса
     carrier_terms = [rs.normalize(Term(el)) for el in A.carrier]
     distinct_roots = {cc.find(t) for t in carrier_terms}
