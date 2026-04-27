@@ -1229,8 +1229,7 @@ Quat_Z3 = Atom(
 lib[Quat_Z3.name] = Quat_Z3
 
 print(f"✅ Total structures in library: {len(lib)}")
-
-    return lib
+return lib
 
 
 # ═══════════════════════════════════════════════════════════════════
