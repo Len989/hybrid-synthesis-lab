@@ -63,7 +63,7 @@ class Term:
         return cls(d["head"], [cls.from_dict(arg) for arg in d["args"]])
 
     def parse_term_string(s: str) -> Optional[Term]:
-    """Парсит строку вида 'op(arg1, arg2)' или 'const' в Term."""
+        """Парсит строку вида 'op(arg1, arg2)' или 'const' в Term."""
         s = s.strip()
         if not s:
             return None
