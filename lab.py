@@ -193,7 +193,8 @@ class SynthesisResult:
     action_name: str = ""
 
 
-def synthesize(A: Atom, B: Atom, action_name: str = "·") -> SynthesisResult:
+def synthesize(A: Atom, B: Atom, action_name: str = "·", 
+               user_equations: List[Tuple[str, str]] = None) -> SynthesisResult:
     all_ops = {}
     all_ops.update(A.operations)
     all_ops.update(B.operations)
@@ -1673,6 +1674,55 @@ with st.sidebar:
         action_name = action_presets[preset_label]
         st.caption(f"Текущее действие: `{action_name}`")
 
+    # ═══════════════════════════════════════════════════════════════
+    # КОНТЕКСТ (ОТОЖДЕСТВЛЕНИЯ ЭЛЕМЕНТОВ)
+    # ═══════════════════════════════════════════════════════════════
+    st.markdown("---")
+    st.subheader("🔗 Контекст (отождествления элементов)")
+    st.caption(
+        "Задайте, какие элементы из разных атомов считать одним и тем же. "
+        "Каждое отождествление — это дополнительное равенство, которое будет "
+        "добавлено к автоматически сгенерированным."
+    )
+
+    # Получаем элементы выбранных атомов
+    elem_A = lib[atom_a_name].carrier if atom_a_name in lib else []
+    elem_B = lib[atom_b_name].carrier if atom_b_name in lib else []
+    all_elems = sorted(set(elem_A + elem_B))
+
+    num_element_eqs = st.number_input(
+        "Количество отождествлений элементов", 
+        0, 10, 0, 
+        key="num_elem_eq",
+        help="0 — без дополнительного контекста (свободная склейка)"
+    )
+
+    user_equations = []
+    for i in range(int(num_element_eqs)):
+        col1, col2, col3 = st.columns([2, 1, 2])
+        with col1:
+            left_elem = st.selectbox(
+                f"Элемент {i+1} (левый)", 
+                all_elems, 
+                key=f"elem_left_{i}"
+            )
+        with col2:
+            st.markdown("<div style='text-align: center; padding-top: 5px;'>≡</div>", 
+                       unsafe_allow_html=True)
+        with col3:
+            right_elem = st.selectbox(
+                f"Элемент {i+1} (правый)", 
+                all_elems, 
+                key=f"elem_right_{i}"
+            )
+        if left_elem != right_elem:
+            user_equations.append((left_elem, right_elem))
+
+    if num_element_eqs > 0 and user_equations:
+        st.caption(f"Будет добавлено равенств: {len(user_equations)}")
+    elif num_element_eqs > 0:
+        st.caption("Выберите разные элементы для отождествления")
+        
     # API-ключ
     st.markdown("---")
     st.subheader("🤖 AI-интерпретатор")
