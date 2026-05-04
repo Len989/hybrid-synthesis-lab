@@ -62,46 +62,6 @@ class Term:
     def from_dict(cls, d: dict) -> "Term":
         return cls(d["head"], [cls.from_dict(arg) for arg in d["args"]])
 
-    def parse_term_string(s: str) -> Optional[Term]:
-        """Парсит строку вида 'op(arg1, arg2)' или 'const' в Term."""
-        s = s.strip()
-        if not s:
-            return None
-    
-        # Если есть скобки — парсим как функцию
-        if '(' in s and s.endswith(')'):
-            paren_idx = s.index('(')
-            head = s[:paren_idx].strip()
-            args_str = s[paren_idx+1:-1].strip()
-        
-            # Разбираем аргументы (с учётом вложенных скобок)
-            args = []
-            depth = 0
-            current = ""
-            for ch in args_str:
-                if ch == '(':
-                    depth += 1
-                    current += ch
-                elif ch == ')':
-                    depth -= 1
-                    current += ch
-                elif ch == ',' and depth == 0:
-                    arg = parse_term_string(current)
-                    if arg:
-                        args.append(arg)
-                    current = ""
-                else:
-                    current += ch
-            if current.strip():
-                arg = parse_term_string(current)
-                if arg:
-                    args.append(arg)
-        
-            return Term(head, args)
-        else:
-            # Константа или переменная
-            return Term(s)
-
 
 class CongruenceClosure:
     """Замыкание конгруэнции: Union-Find с безопасным распространением."""
@@ -171,6 +131,47 @@ class CongruenceClosure:
                     break
 
 
+
+def parse_term_string(s: str) -> Optional[Term]:
+        """Парсит строку вида 'op(arg1, arg2)' или 'const' в Term."""
+        s = s.strip()
+        if not s:
+            return None
+    
+        # Если есть скобки — парсим как функцию
+        if '(' in s and s.endswith(')'):
+            paren_idx = s.index('(')
+            head = s[:paren_idx].strip()
+            args_str = s[paren_idx+1:-1].strip()
+        
+            # Разбираем аргументы (с учётом вложенных скобок)
+            args = []
+            depth = 0
+            current = ""
+            for ch in args_str:
+                if ch == '(':
+                    depth += 1
+                    current += ch
+                elif ch == ')':
+                    depth -= 1
+                    current += ch
+                elif ch == ',' and depth == 0:
+                    arg = parse_term_string(current)
+                    if arg:
+                        args.append(arg)
+                    current = ""
+                else:
+                    current += ch
+            if current.strip():
+                arg = parse_term_string(current)
+                if arg:
+                    args.append(arg)
+        
+            return Term(head, args)
+        else:
+            # Константа или переменная
+            return Term(s)
+            
 # ═══════════════════════════════════════════════════════════════════
 # ATOM DATA STRUCTURE
 # ═══════════════════════════════════════════════════════════════════
