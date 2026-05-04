@@ -200,8 +200,12 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·",
     all_ops.update(B.operations)
     all_ops[action_name] = 2
 
-    equations: List[Tuple[Term, Term]] = []
-
+    equations: List[Tuple[Term, Term]] = [] 
+                   
+    # 0. Пользовательские отождествления (контекст)
+    if user_equations:
+        for left_str, right_str in user_equations:
+            equations.append((Term(left_str), Term(right_str)))
     # 1. Аксиомы A
     for left, right in A.axioms:
         vars_left = left.variables()
