@@ -62,6 +62,46 @@ class Term:
     def from_dict(cls, d: dict) -> "Term":
         return cls(d["head"], [cls.from_dict(arg) for arg in d["args"]])
 
+    def parse_term_string(s: str) -> Optional[Term]:
+    """Парсит строку вида 'op(arg1, arg2)' или 'const' в Term."""
+    s = s.strip()
+    if not s:
+        return None
+    
+    # Если есть скобки — парсим как функцию
+    if '(' in s and s.endswith(')'):
+        paren_idx = s.index('(')
+        head = s[:paren_idx].strip()
+        args_str = s[paren_idx+1:-1].strip()
+        
+        # Разбираем аргументы (с учётом вложенных скобок)
+        args = []
+        depth = 0
+        current = ""
+        for ch in args_str:
+            if ch == '(':
+                depth += 1
+                current += ch
+            elif ch == ')':
+                depth -= 1
+                current += ch
+            elif ch == ',' and depth == 0:
+                arg = parse_term_string(current)
+                if arg:
+                    args.append(arg)
+                current = ""
+            else:
+                current += ch
+        if current.strip():
+            arg = parse_term_string(current)
+            if arg:
+                args.append(arg)
+        
+        return Term(head, args)
+    else:
+        # Константа или переменная
+        return Term(s)
+
 
 class CongruenceClosure:
     """Замыкание конгруэнции: Union-Find с безопасным распространением."""
@@ -194,7 +234,8 @@ class SynthesisResult:
 
 
 def synthesize(A: Atom, B: Atom, action_name: str = "·", 
-               user_equations: List[Tuple[str, str]] = None) -> SynthesisResult:
+               user_equations: List[Tuple[str, str]] = None,
+               custom_equations: List[Tuple[str, str]] = None) -> SynthesisResult:
     all_ops = {}
     all_ops.update(A.operations)
     all_ops.update(B.operations)
@@ -206,6 +247,14 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·",
     if user_equations:
         for left_str, right_str in user_equations:
             equations.append((Term(left_str), Term(right_str)))
+    # 0.5 Кастомные равенства термов
+    if custom_equations:
+        for left_str, right_str in custom_equations:
+            left_term = parse_term_string(left_str)
+            right_term = parse_term_string(right_str)
+            if left_term is not None and right_term is not None:
+                equations.append((left_term, right_term))
+                
     # 1. Аксиомы A
     for left, right in A.axioms:
         vars_left = left.variables()
@@ -1727,6 +1776,45 @@ with st.sidebar:
     elif num_element_eqs > 0:
         st.caption("Выберите разные элементы для отождествления")
         
+        # ── КАСТОМНЫЕ РАВЕНСТВА ТЕРМОВ ─────────────────────────
+    st.markdown("---")
+    st.subheader("📝 Кастомные равенства термов")
+    st.caption(
+        "Задайте произвольные равенства термов в формате: `op(arg1, arg2) = result`. "
+        "Например: `d1(d2(v_2)) = 0`. Это добавит условие к склейке."
+    )
+    
+    num_custom_eqs = st.number_input(
+        "Количество кастомных равенств",
+        0, 20, 0,
+        key="num_custom_eq",
+        help="0 — без дополнительных равенств"
+    )
+    
+    custom_equations = []
+    for i in range(int(num_custom_eqs)):
+        col1, col2, col3 = st.columns([3, 1, 3])
+        with col1:
+            left_custom = st.text_input(
+                f"Левая часть {i+1}",
+                key=f"custom_left_{i}",
+                placeholder="напр. d1(d2(v_2))"
+            )
+        with col2:
+            st.markdown("<div style='text-align: center; padding-top: 5px;'>=</div>",
+                       unsafe_allow_html=True)
+        with col3:
+            right_custom = st.text_input(
+                f"Правая часть {i+1}",
+                key=f"custom_right_{i}",
+                placeholder="напр. 0"
+            )
+        if left_custom and right_custom and left_custom != right_custom:
+            custom_equations.append((left_custom, right_custom))
+    
+    if num_custom_eqs > 0 and custom_equations:
+        st.caption(f"Будет добавлено кастомных равенств: {len(custom_equations)}")
+        
     # API-ключ
     st.markdown("---")
     st.subheader("🤖 AI-интерпретатор")
@@ -1737,8 +1825,9 @@ with st.sidebar:
         A = lib[atom_a_name]
         B = lib[atom_b_name]
         with st.spinner("Синтез..."):
-            result = synthesize(A, B, action_name, 
-                    user_equations if user_equations else None)
+            result = synthesize(A, B, action_name,
+                    user_equations if user_equations else None,
+                    custom_equations if 'custom_equations' in dir() and custom_equations else None)
         st.session_state.last_result = result
 
         if result.collapsed:
