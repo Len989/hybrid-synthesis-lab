@@ -1737,7 +1737,8 @@ with st.sidebar:
         A = lib[atom_a_name]
         B = lib[atom_b_name]
         with st.spinner("Синтез..."):
-            result = synthesize(A, B, action_name)
+            result = synthesize(A, B, action_name, 
+                    user_equations if user_equations else None)
         st.session_state.last_result = result
 
         if result.collapsed:
