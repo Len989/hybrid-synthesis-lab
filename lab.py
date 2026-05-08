@@ -257,7 +257,49 @@ class Atom:
             synthesis_date=d.get("synthesis_date", "")
         )
 
+    def generate_terms(self, extra_ops: Dict[str, int] | None = None, 
+                       max_depth: int = 5, mu: float = 0.5) -> Set[Term]:
+        """
+        Генерирует термы с контролем глубины.
+        μ = 0.0 → очень «дикий» результат (мало термов)
+        μ = 1.0 → более полная картина (глубже термы)
+        """
+        depth = 2 + int(mu * 4)           # от 2 до 6
+        depth = min(depth, max_depth)
+        
+        terms: Set[Term] = set()
+        
+        # Базовые элементы (глубина 0)
+        for el in self.carrier:
+            terms.add(Term(el))
+        ops = {**self.operations, **(extra_ops or {})}
+        for op, arity in ops.items():
+            if arity == 0:
+                terms.add(Term(op))
 
+        # Генерация по уровням
+        current_level = list(terms)
+        for d in range(1, depth + 1):
+            new_terms = set()
+            for op, arity in ops.items():
+                if arity == 0:
+                    continue
+                
+                # Ограничиваем количество комбинаций в зависимости от μ
+                limit = max(300, int(1200 * mu))
+                count = 0
+                
+                for combo in itertools.product(current_level, repeat=arity):
+                    if count >= limit:
+                        break
+                    new_terms.add(Term(op, list(combo)))
+                    count += 1
+                    
+            terms.update(new_terms)
+            current_level = list(new_terms)   # следующий уровень только из новых
+
+        return terms
+                           
 # ═══════════════════════════════════════════════════════════════════
 # SYNTHESIS ENGINE
 # ═══════════════════════════════════════════════════════════════════
@@ -276,65 +318,61 @@ class SynthesisResult:
 
 
 def synthesize(A: Atom, B: Atom, action_name: str = "·", 
+               mu: float = 0.5,
                user_equations: List[Tuple[str, str]] = None,
                custom_equations: List[Tuple[str, str]] = None) -> SynthesisResult:
-    all_ops = {}
-    all_ops.update(A.operations)
-    all_ops.update(B.operations)
-    all_ops[action_name] = 2
+    """
+    Основная функция синтеза с управлением μ (0.0 — «дикий», 1.0 — «классический»).
+    """
+    print(f"Синтез: {A.name} ⊕ {B.name} | μ = {mu:.2f} | действие: {action_name}")
 
-    equations: List[Tuple[Term, Term]] = [] 
-                   
-    # 0. Пользовательские отождествления (контекст)
+    all_ops = {**A.operations, **B.operations, action_name: 2}
+
+    # === ГЕНЕРАЦИЯ ТЕРМОВ С УЧЁТОМ μ ===
+    extra_ops = {action_name: 2}
+    terms_A = A.generate_terms(extra_ops, max_depth=6, mu=mu)
+    terms_B = B.generate_terms(extra_ops, max_depth=6, mu=mu)
+    all_terms = terms_A | terms_B
+
+    equations: List[Tuple[Term, Term]] = []
+
+    # 0. Пользовательские отождествления
     if user_equations:
         for left_str, right_str in user_equations:
-            equations.append((Term(left_str), Term(right_str)))
-    # 0.5 Кастомные равенства термов
+            left_t = parse_term_string(left_str)
+            right_t = parse_term_string(right_str)
+            if left_t and right_t:
+                equations.append((left_t, right_t))
+
+    # 0.5 Кастомные равенства
     if custom_equations:
         for left_str, right_str in custom_equations:
-            left_term = parse_term_string(left_str)
-            right_term = parse_term_string(right_str)
-            if left_term is not None and right_term is not None:
-                equations.append((left_term, right_term))
-                
-    # 1. Аксиомы A
+            left_t = parse_term_string(left_str)
+            right_t = parse_term_string(right_str)
+            if left_t and right_t:
+                equations.append((left_t, right_t))
+
+    # 1. Internal axioms A
     for left, right in A.axioms:
-        vars_left = left.variables()
-        vars_right = right.variables()
-        all_vars = vars_left | vars_right
+        vars_set = left.variables() | right.variables()
+        for values in itertools.product(A.carrier, repeat=len(vars_set)):
+            mapping = dict(zip(sorted(vars_set), map(Term, values)))
+            equations.append((left.substitute(mapping), right.substitute(mapping)))
 
-        if len(all_vars) == 0:
-            equations.append((left, right))
-        elif len(all_vars) <= 2:
-            for combo in itertools.product(A.carrier, repeat=len(all_vars)):
-                mapping = {var: Term(val) for var, val in zip(sorted(all_vars), combo)}
-                equations.append((left.substitute(mapping), right.substitute(mapping)))
-
-    # 2. Перенесённые аксиомы B
+    # 2. Transferred axioms B
     for left_b, right_b in B.axioms:
-        vars_left = left_b.variables()
-        vars_right = right_b.variables()
-        all_vars_b = vars_left | vars_right
-
-        if len(all_vars_b) == 0:
+        vars_set = left_b.variables() | right_b.variables()
+        for values in itertools.product(B.carrier, repeat=len(vars_set)):
+            mapping = dict(zip(sorted(vars_set), map(Term, values)))
+            l_sub = left_b.substitute(mapping)
+            r_sub = right_b.substitute(mapping)
             for a in A.carrier:
                 equations.append((
-                    Term(action_name, [left_b, Term(a)]),
-                    Term(action_name, [right_b, Term(a)])
+                    Term(action_name, [l_sub, Term(a)]),
+                    Term(action_name, [r_sub, Term(a)])
                 ))
-        elif len(all_vars_b) <= 2:
-            for combo in itertools.product(B.carrier, repeat=len(all_vars_b)):
-                mapping_b = {var: Term(val) for var, val in zip(sorted(all_vars_b), combo)}
-                left_sub = left_b.substitute(mapping_b)
-                right_sub = right_b.substitute(mapping_b)
-                for a in A.carrier:
-                    a_term = Term(a)
-                    equations.append((
-                        Term(action_name, [left_sub, a_term]),
-                        Term(action_name, [right_sub, a_term])
-                    ))
 
-    # 3. Совместимость действия с операциями A
+    # 3. Compatibility of action
     for op, arity in A.operations.items():
         if arity == 0:
             continue
@@ -346,14 +384,68 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·",
                 right = Term(op, [Term(action_name, [b_term, arg]) for arg in args])
                 equations.append((left, right))
 
-    # Вычисление коуравнителя
+    # === ЗАПУСК COEQUALIZER С μ ===
     cc = CongruenceClosure()
-    cc.close(equations, all_ops)
+    stats = cc.close(equations, all_ops, mu=mu, max_iterations=300)
 
     # Сбор классов
     classes = defaultdict(list)
     for t in list(cc.parent.keys()):
         classes[cc.find(t)].append(t)
+
+    # Проверка коллапса
+    carrier_terms = [Term(el) for el in A.carrier]
+    collapsed = len({cc.find(t) for t in carrier_terms}) <= 1
+
+    if collapsed:
+        return SynthesisResult(
+            atom=None,
+            collapsed=True,
+            classes=dict(classes),
+            equations_count=len(equations),
+            timestamp=datetime.now().isoformat(),
+            cc=cc,
+            parent_A=A,
+            parent_B=B,
+            action_name=action_name
+        )
+
+    # Построение нового атома (упрощённо — как было у тебя)
+    new_carrier = []
+    carrier_repr_map = {}
+    for t in carrier_terms:
+        root = cc.find(t)
+        if root not in carrier_repr_map:
+            repr_name = repr(root)[:25]
+            new_carrier.append(repr_name)
+            carrier_repr_map[root] = repr_name
+
+    new_operations = dict(A.operations)
+    new_operations[action_name] = 2
+
+    new_atom = Atom(
+        name=f"{A.name} ⊕ {B.name} [μ={mu:.2f}]",
+        carrier=new_carrier,
+        operations=new_operations,
+        axioms=[],  # можно позже добавить extracted axioms
+        description=f"Гибрид {A.name} и {B.name} через {action_name} (μ={mu:.2f})",
+        is_synthetic=True,
+        parent_atoms=[A.name, B.name],
+        interaction=action_name,
+        synthesis_date=datetime.now().isoformat()
+    )
+
+    return SynthesisResult(
+        atom=new_atom,
+        collapsed=False,
+        classes=dict(classes),
+        equations_count=len(equations),
+        timestamp=datetime.now().isoformat(),
+        cc=cc,
+        parent_A=A,
+        parent_B=B,
+        action_name=action_name
+    )
 
     # ── НОРМАЛИЗАЦИЯ ЧЕРЕЗ REWRITING (ФИНАЛЬНАЯ) ───────
     rs = build_rewriting_system(A, action_name)
