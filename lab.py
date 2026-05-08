@@ -2037,23 +2037,25 @@ with tab1:
         st.info("Выполните синтез в боковой панели.")
     else:
         result = st.session_state.last_result
-        A = lib[atom_a_name] if 'atom_a_name' in locals() else None
-        B = lib[atom_b_name] if 'atom_b_name' in locals() else None
+        mu_value = st.session_state.get("mu_slider", 0.5)   # берём значение из слайдера
+
+        st.subheader(f"Результат синтеза (μ = {mu_value:.2f})")
 
         if result.collapsed:
             st.error("💥 АРХИТЕКТУРА КОЛЛАПСИРОВАЛА")
-            st.markdown(
-                "**Все элементы носителя отождествлены.** "
-                "Данная конфигурация структур и взаимодействия математически невозможна — это **no-go theorem**."
-            )
+            st.markdown("**Все элементы носителя отождествлены.** Это доказывает, что данная архитектурная схема невозможна.")
             st.metric("Количество наложенных равенств", result.equations_count)
-
-            with st.expander("🧾 Вынужденные равенства (первые 100)", expanded=False):
-                st.caption("Эти равенства были наложены коуравнителем:")
-                st.write(f"Всего равенств: {result.equations_count}")
         else:
             atom = result.atom
             st.success(f"✅ **{atom.name}** — структура успешно синтезирована")
+
+            # Индикатор режима μ
+            if mu_value < 0.3:
+                st.caption("🌲 **Дикий режим** — минимальные отождествления")
+            elif mu_value > 0.8:
+                st.caption("🏛️ **Классический режим** — сильная нормализация")
+            else:
+                st.caption("⚖️ **Сбалансированный режим**")
 
             col1, col2, col3, col4 = st.columns(4)
             with col1:
@@ -2063,7 +2065,55 @@ with tab1:
             with col3:
                 st.metric("Равенств", result.equations_count)
             with col4:
-                st.metric("Классов эквивал.", len(result.classes))
+                st.metric("Классов эквивалентности", len(result.classes))
+
+            st.markdown(f"**Родители:** {', '.join(atom.parent_atoms)}")
+            st.markdown(f"**Взаимодействие:** {atom.interaction}")
+
+            # Краткий авто-анализ
+            if mu_value < 0.3 and len(result.classes) > 10:
+                st.info("🔥 Очень дикий результат: много теневых классов и отождествлений.")
+            elif mu_value > 0.8 and len(result.classes) < 8:
+                st.info("🧩 Структура близка к классической — сильное прилипание и нормализация.")
+
+            # Вкладки с деталями
+            detail_tab1, detail_tab2 = st.tabs(["📊 Таблицы и граф", "🧾 Классы эквивалентности"])
+
+            with detail_tab1:
+                st.subheader("🧬 Носитель новой структуры")
+                for i, elem in enumerate(atom.carrier):
+                    st.write(f"**{i+1}.** `{elem}`")
+
+                st.subheader("🧮 Сохранённые операции")
+                ops_list = [f"`{op}` (арность {ar})" for op, ar in atom.operations.items()]
+                st.markdown(", ".join(ops_list))
+
+                # Здесь можно оставить твой существующий код с таблицами действия и Кэли
+                # (если хочешь, я дам его улучшенную версию в следующем блоке)
+
+            with detail_tab2:
+                with st.expander("🧾 Вынужденные равенства (первые 80)", expanded=False):
+                    st.caption(f"Всего равенств: {result.equations_count}")
+                    nontrivial = {rep: elems for rep, elems in result.classes.items() if len(elems) > 1}
+                    if nontrivial:
+                        text = "Нетривиальные отождествления:\n"
+                        for rep, elems in list(nontrivial.items())[:15]:
+                            text += f"{repr(rep)} ← {', '.join(map(repr, elems[:6]))}"
+                            if len(elems) > 6:
+                                text += " ..."
+                            text += "\n"
+                        st.code(text)
+                    else:
+                        st.write("Все классы тривиальны.")
+
+                with st.expander("🔬 Полные классы эквивалентности", expanded=False):
+                    text = ""
+                    for rep, elems in sorted(result.classes.items(), key=lambda x: repr(x[0])):
+                        elems_str = ", ".join(map(repr, elems[:15]))
+                        if len(elems) > 15:
+                            elems_str += f" ... (+{len(elems)-15})"
+                        text += f"{repr(rep)} → {{{elems_str}}}\n"
+                    st.code(text)
 
             st.markdown(f"**Родители:** {', '.join(atom.parent_atoms)}")
             st.markdown(f"**Взаимодействие:** {atom.interaction}")
