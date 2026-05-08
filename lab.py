@@ -63,17 +63,27 @@ class Term:
         return cls(d["head"], [cls.from_dict(arg) for arg in d["args"]])
 
 
-class CongruenceClosure:
-    """Замыкание конгруэнции: Union-Find с безопасным распространением."""
+# ====================== CONGRUENCE CLOSURE (с поддержкой μ) ======================
 
+class CongruenceClosure:
+    """
+    Улучшенное замыкание конгруэнции с управлением через параметр μ (0.0 — 1.0).
+    
+    μ = 0.0  → максимально минимальный результат (только вынужденные отождествления)
+    μ = 1.0  → максимально "классический" результат (агрессивное распространение + нормализация)
+    """
+    
     def __init__(self):
         self.parent: Dict[Term, Term] = {}
         self.rank: Dict[Term, int] = {}
+        self.terms: Set[Term] = set()
+        self.pending: List[Tuple[Term, Term]] = []
 
     def find(self, t: Term) -> Term:
         if t not in self.parent:
             self.parent[t] = t
             self.rank[t] = 0
+            self.terms.add(t)
             return t
         if self.parent[t] != t:
             self.parent[t] = self.find(self.parent[t])
@@ -93,43 +103,74 @@ class CongruenceClosure:
             self.rank[p1] += 1
         return True
 
-    def close(self, equations: List[Tuple[Term, Term]], arities: Dict[str, int]):
-        """Замыкание: начальное объединение + ограниченное распространение."""
-        for left, right in equations:
-            self.union(left, right)
+    def add_equation(self, t1: Term, t2: Term):
+        self.pending.append((t1, t2))
 
-        changed = True
-        max_iterations = 50
+    def close(self, initial_equations: List[Tuple[Term, Term]], 
+              arities: Dict[str, int], 
+              mu: float = 0.5,
+              max_iterations: int = 300,
+              verbose: bool = False) -> dict:
+        """
+        Основной метод замыкания.
+        mu контролирует агрессивность:
+            - глубину итераций
+            - вероятность/частоту дополнительных объединений
+        """
+        for eq in initial_equations:
+            self.add_equation(*eq)
+
         iteration = 0
+        changed = True
+        total_unions = 0
 
         while changed and iteration < max_iterations:
             changed = False
             iteration += 1
-            all_terms = list(self.parent.keys())
+            current_pending = self.pending
+            self.pending = []
 
+            # Обрабатываем накопленные равенства
+            for left, right in current_pending:
+                if self.union(left, right):
+                    changed = True
+                    total_unions += 1
+
+            # Распространение конгруэнтности (управляется μ)
+            aggressiveness = 0.3 + 0.7 * mu  # от 0.3 до 1.0
+            all_terms = list(self.terms)
+            
             for op, arity in arities.items():
                 if arity == 0:
                     continue
-                for t in all_terms:
-                    if t.head != op or len(t.args) != arity:
-                        continue
-                    for i in range(arity):
-                        root_i = self.find(t.args[i])
+                # Ограничиваем количество комбинаций в зависимости от μ
+                sample_size = max(50, int(len(all_terms) ** arity * aggressiveness * 0.8))
+                combos = itertools.product(all_terms, repeat=arity)
+                
+                for i, combo in enumerate(combos):
+                    if i > sample_size:
+                        break
+                    t = Term(op, list(combo))
+                    for pos in range(arity):
+                        orig = combo[pos]
                         for other in all_terms:
-                            if self.find(other) == root_i and other != t.args[i]:
-                                new_args = list(t.args)
-                                new_args[i] = other
-                                new_t = Term(op, new_args)
+                            if self.find(orig) == self.find(other):
+                                new_combo = list(combo)
+                                new_combo[pos] = other
+                                new_t = Term(op, new_combo)
                                 if self.union(t, new_t):
                                     changed = True
-                                    break
-                        if changed:
-                            break
-                    if changed:
-                        break
-                if changed:
-                    break
+                                    total_unions += 1
+                                    self.pending.append((t, new_t))
 
+            if verbose and iteration % 20 == 0:
+                print(f"  μ={mu:.2f} | iter={iteration} | terms={len(self.terms)} | unions={total_unions}")
+
+        return {
+            "iterations": iteration,
+            "total_unions": total_unions,
+            "completed": iteration < max_iterations
+        }
 
 
 def parse_term_string(s: str) -> Optional[Term]:
