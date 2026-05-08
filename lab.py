@@ -1951,23 +1951,81 @@ with st.sidebar:
         
     # API-ключ
     st.markdown("---")
-    st.subheader("🤖 AI-интерпретатор")
-    api_key = st.text_input("DeepSeek API ключ", type="password",
-                            help="Получить на platform.deepseek.com")
+        # ── ВЫБОР АТОМОВ ───────────────────────────────────────
+    st.header("Выберите два атома")
+    atom_a_name = st.selectbox("Атом A (цель)", names, key="atom_a")
+    atom_b_name = st.selectbox("Атом B (оператор)", names, key="atom_b")
 
+    # ── ДЕЙСТВИЕ ───────────────────────────────────────────
+    st.header("⚡ Действие")
+    action_presets = {
+        "· (умножение)": "·",
+        "* (умножение)": "*",
+        "+ (сложение)": "+",
+        "∘ (композиция)": "∘",
+        "act (действие группы)": "act",
+        "scalar_mul (скалярное умножение)": "scalar_mul",
+        "evolve (эволюция)": "evolve",
+        "measure (измерение)": "measure",
+        "random_choice (случайный выбор)": "random_choice",
+        "apply (применение)": "apply",
+        "symmetry (симметрия)": "symmetry",
+        "⇒ (импликация)": "⇒",
+        "⊕ (сильная дизъюнкция)": "⊕",
+        "[_,_] (скобка Ли)": "[_,_]",
+        "◦ (йорданово произведение)": "◦",
+        "⊗ (тензорное произведение)": "⊗",
+        "conj (сопряжение)": "conj",
+        "trivial (тривиальное действие)": "trivial",
+        "▸ своё действие": "custom",
+    }
+
+    preset_label = st.selectbox("Тип действия", list(action_presets.keys()))
+    if action_presets[preset_label] == "custom":
+        action_name = st.text_input("Название своего действия", "·", key="custom_action")
+    else:
+        action_name = action_presets[preset_label]
+
+    # ── НОВОЕ: ПАРАМЕТР μ ───────────────────────────────────
+    st.header("🎛️ Уровень «классичности» (μ)")
+    st.caption("0.0 = максимально дикий результат | 1.0 = максимально классический")
+
+    mu_mode = st.radio(
+        "Режим синтеза",
+        options=["Дикий (μ ≈ 0.1)", "Сбалансированный (μ = 0.5)", "Классический (μ ≈ 0.9)"],
+        horizontal=True,
+        index=1
+    )
+
+    if mu_mode == "Дикий (μ ≈ 0.1)":
+        mu = 0.1
+    elif mu_mode == "Сбалансированный (μ = 0.5)":
+        mu = 0.5
+    else:
+        mu = 0.9
+
+    mu = st.slider("Точная настройка μ", 0.0, 1.0, mu, step=0.05, key="mu_slider")
+
+    # ── КНОПКА СИНТЕЗА ─────────────────────────────────────
     if st.button("🚀 Синтезировать", type="primary", use_container_width=True):
         A = lib[atom_a_name]
         B = lib[atom_b_name]
-        with st.spinner("Синтез..."):
-            result = synthesize(A, B, action_name,
-                    user_equations if user_equations else None,
-                    custom_equations if 'custom_equations' in dir() and custom_equations else None)
+        
+        with st.spinner(f"Синтез... (μ = {mu:.2f})"):
+            result = synthesize(
+                A, B, 
+                action_name=action_name,
+                mu=mu,
+                user_equations=user_equations if 'user_equations' in locals() else None,
+                custom_equations=custom_equations if 'custom_equations' in locals() else None
+            )
+        
         st.session_state.last_result = result
 
         if result.collapsed:
-            st.error("💥 Коллапс!")
+            st.error("💥 Коллапс архитектуры")
         else:
-            st.success(f"✅ {result.atom.name}")
+            st.success(f"✅ Синтезировано: **{result.atom.name}** (μ={mu:.2f})")
             lib[result.atom.name] = result.atom
             st.rerun()
 
