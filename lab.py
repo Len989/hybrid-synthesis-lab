@@ -2037,7 +2037,7 @@ with tab1:
         st.info("Выполните синтез в боковой панели.")
     else:
         result = st.session_state.last_result
-        mu_value = st.session_state.get("mu_slider", 0.5)   # берём значение из слайдера
+        mu_value = st.session_state.get("mu_slider", 0.5)
 
         st.subheader(f"Результат синтеза (μ = {mu_value:.2f})")
 
@@ -2051,9 +2051,9 @@ with tab1:
 
             # Индикатор режима μ
             if mu_value < 0.3:
-                st.caption("🌲 **Дикий режим** — минимальные отождествления")
+                st.caption("🌲 **Дикий режим** — минимальные отождествления, много теневых классов")
             elif mu_value > 0.8:
-                st.caption("🏛️ **Классический режим** — сильная нормализация")
+                st.caption("🏛️ **Классический режим** — сильная нормализация и прилипание")
             else:
                 st.caption("⚖️ **Сбалансированный режим**")
 
@@ -2071,10 +2071,12 @@ with tab1:
             st.markdown(f"**Взаимодействие:** {atom.interaction}")
 
             # Краткий авто-анализ
-            if mu_value < 0.3 and len(result.classes) > 10:
-                st.info("🔥 Очень дикий результат: много теневых классов и отождествлений.")
-            elif mu_value > 0.8 and len(result.classes) < 8:
-                st.info("🧩 Структура близка к классической — сильное прилипание и нормализация.")
+            if mu_value < 0.3 and len(result.classes) > 12:
+                st.info("🔥 Очень дикий результат: много теневых классов и сложных отождествлений.")
+            elif mu_value > 0.8 and len(result.classes) < 10:
+                st.info("🧩 Структура близка к классической — сильное упрощение.")
+            elif len(result.classes) > 20:
+                st.warning("⚠️ Большое количество классов — возможна неполная нормализация.")
 
             # Вкладки с деталями
             detail_tab1, detail_tab2 = st.tabs(["📊 Таблицы и граф", "🧾 Классы эквивалентности"])
@@ -2088,8 +2090,8 @@ with tab1:
                 ops_list = [f"`{op}` (арность {ar})" for op, ar in atom.operations.items()]
                 st.markdown(", ".join(ops_list))
 
-                # Здесь можно оставить твой существующий код с таблицами действия и Кэли
-                # (если хочешь, я дам его улучшенную версию в следующем блоке)
+                # Здесь можно оставить твой существующий код таблиц действия и Кэли
+                # (если хочешь — я могу его улучшить в следующем блоке)
 
             with detail_tab2:
                 with st.expander("🧾 Вынужденные равенства (первые 80)", expanded=False):
@@ -2114,124 +2116,6 @@ with tab1:
                             elems_str += f" ... (+{len(elems)-15})"
                         text += f"{repr(rep)} → {{{elems_str}}}\n"
                     st.code(text)
-
-            st.markdown(f"**Родители:** {', '.join(atom.parent_atoms)}")
-            st.markdown(f"**Взаимодействие:** {atom.interaction}")
-
-            # ── ВКЛАДКИ ДЛЯ ДЕТАЛЕЙ ─────────────────────────────
-            detail_tab1, detail_tab2 = st.tabs(["📊 Таблицы и граф", "🧾 Классы эквивалентности"])
-
-            with detail_tab1:
-                st.subheader("🧬 Носитель новой структуры")
-                st.markdown(
-                    "Каждый элемент — это **класс эквивалентности**, "
-                    "возникший при склейке:"
-                )
-                for i, elem in enumerate(atom.carrier):
-                    st.write(f"**{i+1}.** `{elem}`")
-
-                st.subheader("🧮 Сохранённые операции")
-                ops_list = [
-                    f"`{op}` (арность {ar})" for op, ar in atom.operations.items()
-                ]
-                st.markdown(", ".join(ops_list))
-
-                if action_name in atom.operations and B is not None:
-                    st.subheader(f"📊 Таблица действия `{action_name}` (B × A → A)")
-                    st.markdown(
-                        "Показывает результат **b · a** для каждого b из оператора "
-                        "и каждого a из целевой структуры:"
-                    )
-                    table_data = []
-                    rs = build_rewriting_system(A, action_name)
-                    for b_elem in B.carrier:
-                        row = [f"**{b_elem}**"]
-                        for a_elem in atom.carrier:
-                            action_term = Term(action_name, [Term(b_elem), Term(a_elem)])
-                            norm_action = rs.normalize(action_term)
-                            found = False
-                            if result.cc and norm_action in result.cc.parent:
-                                root = result.cc.find(norm_action)
-                                for rep, elems in result.classes.items():
-                                    if rep == root or root in elems or any(
-                                        result.cc.find(e) == root for e in elems
-                                    ):
-                                        row.append(f"`{repr(rep)}`")
-                                        found = True
-                                        break
-                            if not found:
-                                for rep, elems in result.classes.items():
-                                    if norm_action in elems or any(
-                                        repr(e) == repr(norm_action) for e in elems
-                                    ):
-                                        row.append(f"`{repr(rep)}`")
-                                        found = True
-                                        break
-                            if not found:
-                                row.append("—")
-                        table_data.append(row)
-
-                    for row in table_data:
-                        st.write(" | ".join(row))
-                    st.caption("Прочерк означает, что терм не попал ни в один класс (редкий случай).")
-
-                for op_name, arity in atom.operations.items():
-                    if op_name == action_name:
-                        continue
-                    if arity == 2:
-                        st.subheader(f"📊 Таблица Кэли для `{op_name}`")
-                        table_data = []
-                        for a1 in atom.carrier:
-                            row = [f"**{a1}**"]
-                            for a2 in atom.carrier:
-                                term = Term(op_name, [Term(a1), Term(a2)])
-                                found = False
-                                if result.cc and term in result.cc.parent:
-                                    root = result.cc.find(term)
-                                    norm_root = rs.normalize(root)
-                                    for rep, elems in result.classes.items():
-                                        if rep == norm_root or norm_root in elems or any(
-                                            result.cc.find(e) == result.cc.find(norm_root) for e in elems
-                                        ):
-                                            row.append(f"`{repr(rep)}`")
-                                            found = True
-                                            break
-                                    if not found:
-                                        for rep, elems in result.classes.items():
-                                            if rep == root or root in elems or any(
-                                                result.cc.find(e) == result.cc.find(root) for e in elems
-                                            ):
-                                                row.append(f"`{repr(rep)}`")
-                                                found = True
-                                                break
-                                if not found:
-                                    norm_term = rs.normalize(term)
-                                    for rep, elems in result.classes.items():
-                                        if norm_term in elems or any(
-                                            repr(e) == repr(norm_term) for e in elems
-                                        ):
-                                            row.append(f"`{repr(rep)}`")
-                                            found = True
-                                            break
-                                if not found:
-                                    row.append("—")
-                            table_data.append(row)
-                        for row in table_data:
-                            st.write(" | ".join(row))
-
-                # ── ГРАФ ──────────────────────────────────────
-                st.subheader("🔗 Архитектурный граф структуры")
-                st.caption(
-                    "Узлы — классы эквивалентности. Размер — количество термов в классе. "
-                    "Синий = атом A, Зелёный = атом B, Фиолетовый = гибрид, Красный = теневой класс. "
-                    "Сплошные линии — замкнутые операции, пунктир — теневые, оранжевый пунктир — действие."
-                )
-                try:
-                    fig = build_synthesis_graph(result)
-                    st.pyplot(fig)
-                    plt.close(fig)
-                except Exception as e:
-                    st.warning(f"Не удалось построить граф: {e}")
 
             with detail_tab2:
                 # ── Вынужденные равенства ──
