@@ -438,10 +438,10 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·",
                 norm_action = rs.normalize(action_term)
 
                 # Добавляем в CongruenceClosure
-                if result.cc is not None:
-                    if norm_action not in result.cc.parent:
-                        result.cc.parent[norm_action] = norm_action
-                        result.cc.rank[norm_action] = 0
+                if cc is not None:
+                    if norm_action not in cc.parent:
+                        cc.parent[norm_action] = norm_action
+                        cc.rank[norm_action] = 0
 
                 # Добавляем в classes
                 placed = False
