@@ -429,6 +429,25 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·",
                 classes[norm_rep] = classes[rep]
             del classes[rep]
 
+    # === БЕЗОПАСНОЕ ДОБАВЛЕНИЕ ACTION-ТЕРМОВ В КЛАССЫ ===
+    # Гарантируем, что все *(b, a) попадают в финальные классы
+    if action_name and B is not None:
+        for b_elem in B.carrier:
+            for a_elem in A.carrier:
+                action_term = Term(action_name, [Term(b_elem), Term(a_elem)])
+                norm_action = rs.normalize(action_term)
+                # Ищем класс, в который должен попасть этот терм
+                placed = False
+                for rep, elems in list(classes.items()):
+                    if norm_action == rep or norm_action in elems:
+                        if norm_action not in elems:
+                            classes[rep].append(norm_action)
+                        placed = True
+                        break
+                if not placed:
+                    # Если не нашли — создаём новый класс (редко)
+                    classes[norm_action] = [norm_action]
+
     # Проверка коллапса
     carrier_terms = [rs.normalize(Term(el)) for el in A.carrier]
     distinct_roots = {cc.find(t) for t in carrier_terms}
@@ -2131,4 +2150,4 @@ with tab2:
             st.write(f"Операции: {', '.join(f'{op}:{ar}' for op, ar in atom.operations.items())}")
 
 st.markdown("---")
-st.caption("Hybrid Synthesis Laboratory v2.1 | L. Shcherbakov (2025)")
+st.caption("Hybrid Synthesis Laboratory v2.1 | L. Shcherbakov (2026)")
