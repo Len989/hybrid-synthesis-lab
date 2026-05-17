@@ -1931,25 +1931,22 @@ with tab1:
                         for a_elem in atom.carrier:
                             action_term = Term(action_name, [Term(b_elem), Term(a_elem)])
                             norm_action = rs.normalize(action_term)
-                            found = False
-                            if result.cc and norm_action in result.cc.parent:
-                                root = result.cc.find(norm_action)
-                                for rep, elems in result.classes.items():
-                                    if rep == root or root in elems or any(
-                                        result.cc.find(e) == root for e in elems
-                                    ):
-                                        row.append(f"`{repr(rep)}`")
-                                        found = True
+
+                            # Ищем представителя в финальных классах
+                            found_rep = None
+                            for rep, elems in result.classes.items():
+                                if norm_action == rep or norm_action in elems:
+                                    found_rep = rep
+                                    break
+                                if result.cc and norm_action in result.cc.parent:
+                                    root = result.cc.find(norm_action)
+                                    if rep == root or any(result.cc.find(e) == root for e in elems):
+                                        found_rep = rep
                                         break
-                            if not found:
-                                for rep, elems in result.classes.items():
-                                    if norm_action in elems or any(
-                                        repr(e) == repr(norm_action) for e in elems
-                                    ):
-                                        row.append(f"`{repr(rep)}`")
-                                        found = True
-                                        break
-                            if not found:
+
+                            if found_rep is not None:
+                                row.append(f"`{repr(found_rep)}`")
+                            else:
                                 row.append("—")
                         table_data.append(row)
 
