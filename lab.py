@@ -464,6 +464,10 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·",
 
     new_operations[action_name] = 2
 
+    # Гарантированно добавляем константу 1, если она выжила в носителе
+    if "1" in new_carrier and "1" not in new_operations:
+        new_operations["1"] = 0
+
     new_atom = Atom(
         name=f"{A.name}⊕{B.name}",
         carrier=new_carrier,
@@ -1876,8 +1880,8 @@ with tab1:
             )
             st.metric("Количество наложенных равенств", result.equations_count)
 
-            with st.expander("🧾 Вынужденные равенства (первые 100)", expanded=False):
-                st.caption("Эти равенства были наложены коуравнителем:")
+            with st.expander("🧾 Вынужденные равенства (все нетривиальные)", expanded=False):
+                st.caption("Эти равенства были наложены коуравнителем (показаны все классы с >1 элементом):")
                 st.write(f"Всего равенств: {result.equations_count}")
         else:
             atom = result.atom
@@ -2013,10 +2017,10 @@ with tab1:
 
             with detail_tab2:
                 # ── Вынужденные равенства ──
-                with st.expander("🧾 Вынужденные равенства (первые 100)", expanded=False):
+                with st.expander("🧾 Вынужденные равенства (все нетривиальные)", expanded=False):
                     st.caption(
                         "Эти равенства были наложены коуравнителем. "
-                        "Они показывают, какие именно термы были отождествлены."
+                        "Показаны все классы с более чем одним элементом."
                     )
                     equality_text = f"Всего равенств: {result.equations_count}\n"
                     nontrivial = {
@@ -2026,13 +2030,13 @@ with tab1:
                     }
                     if nontrivial:
                         equality_text += "Нетривиальные отождествления:\n"
-                        for rep, elems in list(nontrivial.items())[:20]:
-                            equality_text += f"{repr(rep)} ← {', '.join(map(repr, elems[:5]))}"
-                            if len(elems) > 5:
+                        for rep, elems in list(nontrivial.items()):
+                            equality_text += f"{repr(rep)} ← {', '.join(map(repr, elems[:8]))}"
+                            if len(elems) > 8:
                                 equality_text += " ..."
                             equality_text += "\n"
                     else:
-                        equality_text += "Все классы тривиальны (неожиданно).\n"
+                        equality_text += "Все классы тривиальны.\n"
 
                     st.code(equality_text, language="text")
 
@@ -2129,4 +2133,4 @@ with tab2:
             st.write(f"Операции: {', '.join(f'{op}:{ar}' for op, ar in atom.operations.items())}")
 
 st.markdown("---")
-st.caption("Hybrid Synthesis Laboratory v2.1 | L. Shcherbakov (2025)")
+st.caption("Hybrid Synthesis Laboratory v2.1 | L. Shcherbakov (2026)")
