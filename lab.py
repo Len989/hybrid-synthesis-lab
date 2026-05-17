@@ -1742,15 +1742,13 @@ with st.sidebar:
         st.caption(f"Текущее действие: `{action_name}`")
 
     # ═══════════════════════════════════════════════════════════════
-    # НОВЫЙ УДОБНЫЙ КОНТЕКСТ (с пресетами для классики!)
+    # ПРОСТОЙ КОНТЕКСТ — одно большое окно для равенств (как ты просил)
     # ═══════════════════════════════════════════════════════════════
     st.markdown("---")
-    st.subheader("🔗 Контекст склейки")
+    st.subheader("🔗 Контекст (равенства)")
     st.caption(
-        "Здесь ты **явно управляешь** склейкой, чтобы вырастить классические структуры "
-        "(кольцо, модуль, действие с единицей и т.д.). "
-        "Без контекста — свободный синтез (может быть экзотическим). "
-        "С контекстом — контролируешь результат."
+        "Вставь сюда все нужные равенства сразу (по одному на строку). "
+        "Формат: `левая = правая`. Можно копировать/вставлять целыми блоками."
     )
 
     # Получаем элементы
@@ -1759,118 +1757,49 @@ with st.sidebar:
     elem_A = A.carrier if A else []
     elem_B = B.carrier if B else []
 
-    # === 1. ОТОЖДЕСТВЛЕНИЯ ЭЛЕМЕНТОВ (A ↔ B) ===
-    st.markdown("**1. Отождествления элементов** (A ≡ B)")
-    st.caption("Если элементы из A и B обозначают одно и то же в гибриде (например, один и тот же ноль).")
-
-    col_add1, col_add2, col_add3 = st.columns([2.2, 2.2, 0.8])
-    with col_add1:
-        a_elem = st.selectbox("Из A (цель)", elem_A, key="a_elem_new")
-    with col_add2:
-        b_elem = st.selectbox("Из B (оператор)", elem_B, key="b_elem_new")
-    with col_add3:
-        if st.button("➕", key="add_ident", help="Добавить отождествление"):
-            pair = (a_elem, b_elem)
-            if pair not in st.session_state.identifications:
-                st.session_state.identifications.append(pair)
-                st.rerun()
-
-    if st.session_state.identifications:
-        st.write("**Текущие:**")
-        for i, (ae, be) in enumerate(st.session_state.identifications[:]):
-            c1, c2 = st.columns([5, 1])
-            with c1:
-                st.markdown(f"`{ae}` ≡ `{be}`")
-            with c2:
-                if st.button("🗑️", key=f"del_id_{i}"):
-                    st.session_state.identifications.pop(i)
+    # === 1. ОТОЖДЕСТВЛЕНИЯ ЭЛЕМЕНТОВ (оставил минимально) ===
+    with st.expander("Отождествления элементов (A ≡ B) — опционально"):
+        col_add1, col_add2, col_add3 = st.columns([2.2, 2.2, 0.8])
+        with col_add1:
+            a_elem = st.selectbox("Из A", elem_A, key="a_elem_new")
+        with col_add2:
+            b_elem = st.selectbox("Из B", elem_B, key="b_elem_new")
+        with col_add3:
+            if st.button("➕ Добавить", key="add_ident"):
+                pair = (a_elem, b_elem)
+                if pair not in st.session_state.identifications:
+                    st.session_state.identifications.append(pair)
                     st.rerun()
-    else:
-        st.caption("Пока нет отождествлений — свободная склейка.")
 
-    # === 2. КАСТОМНЫЕ РАВЕНСТВА ===
-    st.markdown("**2. Кастомные равенства термов**")
-    st.caption("Для сложных условий. Пиши в формате `op(arg1, arg2) = результат` (конкретные элементы!).")
+        if st.session_state.identifications:
+            for i, (ae, be) in enumerate(st.session_state.identifications[:]):
+                c1, c2 = st.columns([5, 1])
+                with c1:
+                    st.markdown(f"`{ae}` ≡ `{be}`")
+                with c2:
+                    if st.button("🗑️", key=f"del_id_{i}"):
+                        st.session_state.identifications.pop(i)
+                        st.rerun()
 
-    col_c1, col_c2, col_c3 = st.columns([3.2, 3.2, 0.8])
-    with col_c1:
-        left_c = st.text_input("Левая", key="custom_left_new", placeholder="·(1, 0)")
-    with col_c2:
-        right_c = st.text_input("Правая", key="custom_right_new", placeholder="0")
-    with col_c3:
-        if st.button("➕", key="add_custom_btn"):
-            if left_c.strip() and right_c.strip() and left_c != right_c:
-                st.session_state.custom_eqs.append((left_c.strip(), right_c.strip()))
-                st.rerun()
+    # === 2. ГЛАВНОЕ: ОДНО БОЛЬШОЕ ОКНО ДЛЯ ВСЕХ РАВЕНСТВ ===
+    default_text = "\n".join([f"{l} = {r}" for l, r in st.session_state.custom_eqs]) if st.session_state.custom_eqs else ""
+    context_text = st.text_area(
+        "Равенства (копируй/вставляй сюда)",
+        value=default_text,
+        height=220,
+        placeholder="""*(1, 0) = 0
+*(1, 1) = 1
+*(0, 0) = 0
+*(0, 1) = 0
+0 = 0
+1 = 1""",
+        help="Каждое равенство на отдельной строке. При синтезе всё автоматически разберётся."
+    )
 
-    if st.session_state.custom_eqs:
-        st.write("**Текущие кастомные:**")
-        for i, (l, r) in enumerate(st.session_state.custom_eqs[:]):
-            c1, c2 = st.columns([5, 1])
-            with c1:
-                st.markdown(f"`{l}` = `{r}`")
-            with c2:
-                if st.button("🗑️", key=f"del_cus_{i}"):
-                    st.session_state.custom_eqs.pop(i)
-                    st.rerun()
-    else:
-        st.caption("Пока нет кастомных равенств.")
-
-    # === 3. ПРЕСЕТЫ ДЛЯ КЛАССИКИ (самое важное!) ===
-    st.markdown("**🚀 Пресеты для классики** (кликни — и вырастет кольцо/модуль!)")
-    st.caption("Эти пресеты добавляют недостающие равенства (unit действует как id, 0 аннигилирует и т.д.).")
-
-    col_p1, col_p2 = st.columns(2)
-    with col_p1:
-        if st.button("Кольцо: unit B → id", help="Делает действие единицы B тождественным на A"):
-            if B and action_name:
-                unit = None
-                for opn, ar in B.operations.items():
-                    if ar == 0 and opn.lower() in ["1", "e", "unit", "one"]:
-                        unit = opn
-                        break
-                if unit:
-                    added = 0
-                    for a_val in elem_A:
-                        eq = (f"{action_name}({unit}, {a_val})", a_val)
-                        if eq not in st.session_state.custom_eqs:
-                            st.session_state.custom_eqs.append(eq)
-                            added += 1
-                    st.success(f"✅ Добавлено {added} уравнений: {action_name}({unit}, a) = a")
-                    st.rerun()
-                else:
-                    st.warning("В B не найден unit (1/e/unit)")
-            else:
-                st.warning("Выбери B и действие")
-
-    with col_p2:
-        if st.button("0 аннигилирует", help="b=0 из B даёт ноль на A"):
-            if B and action_name and A:
-                zero_b = None
-                for opn, ar in B.operations.items():
-                    if ar == 0 and opn in ["0", "zero", "⊥"]:
-                        zero_b = opn
-                        break
-                zero_a = None
-                for opn, ar in A.operations.items():
-                    if ar == 0 and opn in ["0", "zero"]:
-                        zero_a = opn
-                        break
-                if not zero_a and elem_A:
-                    zero_a = elem_A[0]
-                if zero_b and zero_a:
-                    added = 0
-                    for a_val in elem_A:
-                        eq = (f"{action_name}({zero_b}, {a_val})", zero_a)
-                        if eq not in st.session_state.custom_eqs:
-                            st.session_state.custom_eqs.append(eq)
-                            added += 1
-                    st.success(f"✅ Добавлено {added} уравнений аннигилятора")
-                    st.rerun()
-                else:
-                    st.warning("Не найден 0 в B или A")
-            else:
-                st.warning("Выбери A, B и действие")
+    # Кнопка очистки (опционально)
+    if st.button("🧹 Очистить равенства", key="clear_eqs"):
+        st.session_state.custom_eqs = []
+        st.rerun()
 
     # Кнопка очистки
     if st.button("🧹 Очистить весь контекст", type="secondary"):
@@ -1885,13 +1814,28 @@ with st.sidebar:
                             help="Получить на platform.deepseek.com")
 
     if st.button("🚀 Синтезировать", type="primary", use_container_width=True):
+        # === ПАРСИНГ ТЕКСТОВОГО ПОЛЯ В РАВЕНСТВА ===
+        parsed_custom = []
+        for line in context_text.strip().split("\n"):
+            line = line.strip()
+            if not line or "=" not in line:
+                continue
+            left, right = line.split("=", 1)
+            left = left.strip()
+            right = right.strip()
+            if left and right and left != right:
+                parsed_custom.append((left, right))
+
+        # Сохраняем в session_state (чтобы показывалось в textarea)
+        st.session_state.custom_eqs = parsed_custom
+
         A_obj = lib[atom_a_name]
         B_obj = lib[atom_b_name]
         with st.spinner("Синтез..."):
             result = synthesize(
                 A_obj, B_obj, action_name,
                 user_equations = st.session_state.identifications if st.session_state.identifications else None,
-                custom_equations = st.session_state.custom_eqs if st.session_state.custom_eqs else None
+                custom_equations = parsed_custom if parsed_custom else None
             )
         st.session_state.last_result = result
 
@@ -2174,4 +2118,4 @@ with tab2:
             st.write(f"Операции: {', '.join(f'{op}:{ar}' for op, ar in atom.operations.items())}")
 
 st.markdown("---")
-st.caption("Hybrid Synthesis Laboratory v2.1 | L. Shcherbakov (2026)")
+st.caption("Hybrid Synthesis Laboratory v2.1 | L. Shcherbakov (2025)")
