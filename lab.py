@@ -458,11 +458,9 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·",
             carrier_repr_map[norm_t] = repr_name
 
     new_operations = {}
+    # Сохраняем ВСЕ операции атома A (и константы, и бинарные)
     for op, arity in A.operations.items():
-        if arity == 0:
-            new_operations[op] = 0   # всегда сохраняем константы целевой структуры
-        else:
-            new_operations[op] = arity
+        new_operations[op] = arity
 
     new_operations[action_name] = 2
 
@@ -2131,4 +2129,4 @@ with tab2:
             st.write(f"Операции: {', '.join(f'{op}:{ar}' for op, ar in atom.operations.items())}")
 
 st.markdown("---")
-st.caption("Hybrid Synthesis Laboratory v2.1 | L. Shcherbakov (2026)")
+st.caption("Hybrid Synthesis Laboratory v2.1 | L. Shcherbakov (2025)")
