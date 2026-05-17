@@ -1932,16 +1932,17 @@ with tab1:
                             action_term = Term(action_name, [Term(b_elem), Term(a_elem)])
                             norm_action = rs.normalize(action_term)
 
-                            # Простой и надёжный поиск
+                            # Самый надёжный поиск: проверяем все элементы во всех классах
                             found_rep = None
                             for rep, elems in result.classes.items():
-                                # Прямая проверка
-                                if norm_action == rep or norm_action in elems:
+                                if norm_action == rep:
                                     found_rep = rep
                                     break
-                                # Проверка через нормализацию представителя
-                                if rs.normalize(rep) == norm_action:
-                                    found_rep = rep
+                                for e in elems:
+                                    if norm_action == e:
+                                        found_rep = rep
+                                        break
+                                if found_rep:
                                     break
 
                             if found_rep is not None:
