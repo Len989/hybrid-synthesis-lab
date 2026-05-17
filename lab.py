@@ -378,7 +378,244 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·",
             continue
         for b in B.carrier:
             b_term = Term(b)
-            for combo in itertools.product(A.carrier, repeat=arity
+            for combo in itertools.product(A.carrier, repeat=arity):
+                args = [Term(x) for x in combo]
+                left = Term(action_name, [b_term, Term(op, args)])
+                right = Term(op, [Term(action_name, [b_term, arg]) for arg in args])
+                equations.append((left, right))
+
+    # === ЗАПУСК COEQUALIZER С μ ===
+    cc = CongruenceClosure()
+    stats = cc.close(equations, all_ops, mu=mu, max_iterations=300)
+
+    # Сбор классов
+    classes = defaultdict(list)
+    for t in list(cc.parent.keys()):
+        classes[cc.find(t)].append(t)
+
+    # Проверка коллапса
+    carrier_terms = [Term(el) for el in A.carrier]
+    collapsed = len({cc.find(t) for t in carrier_terms}) <= 1
+
+    if collapsed:
+        return SynthesisResult(
+            atom=None,
+            collapsed=True,
+            classes=dict(classes),
+            equations_count=len(equations),
+            timestamp=datetime.now().isoformat(),
+            cc=cc,
+            parent_A=A,
+            parent_B=B,
+            action_name=action_name
+        )
+
+    # Построение нового атома (упрощённо — как было у тебя)
+    new_carrier = []
+    carrier_repr_map = {}
+    for t in carrier_terms:
+        root = cc.find(t)
+        if root not in carrier_repr_map:
+            repr_name = repr(root)[:25]
+            new_carrier.append(repr_name)
+            carrier_repr_map[root] = repr_name
+
+    new_operations = dict(A.operations)
+    new_operations[action_name] = 2
+
+    new_atom = Atom(
+        name=f"{A.name} ⊕ {B.name} [μ={mu:.2f}]",
+        carrier=new_carrier,
+        operations=new_operations,
+        axioms=[],  # можно позже добавить extracted axioms
+        description=f"Гибрид {A.name} и {B.name} через {action_name} (μ={mu:.2f})",
+        is_synthetic=True,
+        parent_atoms=[A.name, B.name],
+        interaction=action_name,
+        synthesis_date=datetime.now().isoformat()
+    )
+
+    return SynthesisResult(
+        atom=new_atom,
+        collapsed=False,
+        classes=dict(classes),
+        equations_count=len(equations),
+        timestamp=datetime.now().isoformat(),
+        cc=cc,
+        parent_A=A,
+        parent_B=B,
+        action_name=action_name
+    )
+
+    # ── НОРМАЛИЗАЦИЯ ЧЕРЕЗ REWRITING (ФИНАЛЬНАЯ) ───────
+    rs = build_rewriting_system(A, action_name)
+
+    term_to_normal = {}
+    for t in list(cc.parent.keys()):
+        term_to_normal[t] = rs.normalize(t)
+
+    raw_classes = defaultdict(list)
+    for t, norm_t in term_to_normal.items():
+        raw_classes[norm_t].append(t)
+
+    final_classes = defaultdict(set)
+    visited = set()
+    for norm_rep, elems in raw_classes.items():
+        if norm_rep in visited:
+            continue
+        root = cc.find(norm_rep) if norm_rep in cc.parent else norm_rep
+        for other_norm, other_elems in raw_classes.items():
+            other_root = cc.find(other_norm) if other_norm in cc.parent else other_norm
+            if cc.find(root) == cc.find(other_root):
+                for e in other_elems:
+                    final_classes[root].add(e)
+                visited.add(other_norm)
+        visited.add(norm_rep)
+
+    final_classes_dict = {}
+    basic_terms = {Term(el) for el in A.carrier}
+    for op, arity in A.operations.items():
+        if arity == 0:
+            basic_terms.add(Term(op, []))
+
+    for root, elems in final_classes.items():
+        best = None
+        for e in elems:
+            if e in basic_terms:
+                best = e
+                break
+        if best is None:
+            best = min(elems, key=lambda x: len(repr(rs.normalize(x))))
+        final_classes_dict[best] = sorted(elems, key=lambda x: len(repr(x)))
+
+    classes = final_classes_dict
+    # ── КОНЕЦ НОРМАЛИЗАЦИИ ─────────────────────────────
+
+    # ── СКЛЕЙКА ДУБЛИКАТОВ ПОСЛЕ НОРМАЛИЗАЦИИ ─────────
+    merged_classes = {}
+    for rep, elems in classes.items():
+        if rep in merged_classes:
+            for e in elems:
+                if e not in merged_classes[rep]:
+                    merged_classes[rep].append(e)
+        else:
+            merged_classes[rep] = elems[:]
+    classes = merged_classes
+    # ── КОНЕЦ СКЛЕЙКИ ДУБЛИКАТОВ ───────────────────────
+
+    # ── ФИНАЛЬНАЯ НОРМАЛИЗАЦИЯ: ЗАМЕНА СЛОЖНЫХ ТЕРМОВ НА БАЗОВЫЕ ─
+    basic_terms = {Term(el) for el in A.carrier}
+    for op, arity in A.operations.items():
+        if arity == 0:
+            basic_terms.add(Term(op, []))
+
+    simplification_rules = {}
+    for rep, elems in classes.items():
+        best = None
+        for e in elems:
+            if e in basic_terms:
+                best = e
+                break
+        if best is not None:
+            for e in elems:
+                if e != best:
+                    simplification_rules[e] = best
+
+    simplified_classes = {}
+    for rep, elems in classes.items():
+        new_rep = simplification_rules.get(rep, rep)
+        new_elems = []
+        seen = set()
+        for e in elems:
+            new_e = simplification_rules.get(e, e)
+            if new_e not in seen:
+                new_elems.append(new_e)
+                seen.add(new_e)
+        if new_rep in simplified_classes:
+            for e in new_elems:
+                if e not in simplified_classes[new_rep]:
+                    simplified_classes[new_rep].append(e)
+        else:
+            simplified_classes[new_rep] = new_elems
+
+    classes = simplified_classes
+    # ── КОНЕЦ ФИНАЛЬНОЙ НОРМАЛИЗАЦИИ ──────────────────────────
+
+    # Ещё один проход нормализации для всех представителей
+    for rep in list(classes.keys()):
+        norm_rep = rs.normalize(rep)
+        if norm_rep != rep:
+            if norm_rep in classes:
+                for e in classes[rep]:
+                    if e not in classes[norm_rep]:
+                        classes[norm_rep].append(e)
+            else:
+                classes[norm_rep] = classes[rep]
+            del classes[rep]
+
+    # Проверка коллапса
+    carrier_terms = [rs.normalize(Term(el)) for el in A.carrier]
+    distinct_roots = {cc.find(t) for t in carrier_terms}
+    collapsed = len(distinct_roots) <= 1
+
+    if collapsed:
+        return SynthesisResult(
+            atom=None,
+            collapsed=True,
+            classes=dict(classes),
+            equations_count=len(equations),
+            timestamp=datetime.now().isoformat(),
+            cc=cc,
+            parent_A=A,
+            parent_B=B,
+            action_name=action_name
+        )
+
+    # Построение нового атома
+    new_carrier = []
+    carrier_repr_map = {}
+    for t in carrier_terms:
+        norm_t = rs.normalize(t)
+        if norm_t not in carrier_repr_map:
+            repr_name = repr(norm_t)
+            new_carrier.append(repr_name)
+            carrier_repr_map[norm_t] = repr_name
+
+    new_operations = {}
+    for op, arity in A.operations.items():
+        if arity == 0:
+            const_term = Term(op, [])
+            root = cc.find(const_term)
+            if root in carrier_repr_map:
+                new_operations[op] = 0
+        else:
+            new_operations[op] = arity
+
+    new_operations[action_name] = 2
+
+    new_atom = Atom(
+        name=f"{A.name}⊕{B.name}",
+        carrier=new_carrier,
+        operations=new_operations,
+        axioms=[],
+        description=f"Гибрид {A.name} и {B.name} через {action_name}",
+        is_synthetic=True,
+        parent_atoms=[A.name, B.name],
+        interaction=action_name,
+        synthesis_date=datetime.now().isoformat()
+    )
+
+    return SynthesisResult(
+        atom=new_atom,
+        collapsed=False,
+        classes=dict(classes),
+        equations_count=len(equations),
+        timestamp=datetime.now().isoformat(),
+        cc=cc,
+        parent_A=A,
+        parent_B=B,
+        action_name=action_name
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1712,11 +1949,62 @@ with st.sidebar:
     if num_custom_eqs > 0 and custom_equations:
         st.caption(f"Будет добавлено кастомных равенств: {len(custom_equations)}")
         
-        # API-ключ
+    # API-ключ
     st.markdown("---")
-    st.subheader("🤖 AI-интерпретатор")
-    api_key = st.text_input("DeepSeek API ключ", type="password", 
-                            help="Получить на platform.deepseek.com")
+        # ── ВЫБОР АТОМОВ ───────────────────────────────────────
+    st.header("Выберите два атома")
+    atom_a_name = st.selectbox("Атом A (цель)", names, key="atom_a")
+    atom_b_name = st.selectbox("Атом B (оператор)", names, key="atom_b")
+
+    # ── ДЕЙСТВИЕ ───────────────────────────────────────────
+    st.header("⚡ Действие")
+    action_presets = {
+        "· (умножение)": "·",
+        "* (умножение)": "*",
+        "+ (сложение)": "+",
+        "∘ (композиция)": "∘",
+        "act (действие группы)": "act",
+        "scalar_mul (скалярное умножение)": "scalar_mul",
+        "evolve (эволюция)": "evolve",
+        "measure (измерение)": "measure",
+        "random_choice (случайный выбор)": "random_choice",
+        "apply (применение)": "apply",
+        "symmetry (симметрия)": "symmetry",
+        "⇒ (импликация)": "⇒",
+        "⊕ (сильная дизъюнкция)": "⊕",
+        "[_,_] (скобка Ли)": "[_,_]",
+        "◦ (йорданово произведение)": "◦",
+        "⊗ (тензорное произведение)": "⊗",
+        "conj (сопряжение)": "conj",
+        "trivial (тривиальное действие)": "trivial",
+        "▸ своё действие": "custom",
+    }
+
+    preset_label = st.selectbox("Тип действия", list(action_presets.keys()))
+    if action_presets[preset_label] == "custom":
+        action_name = st.text_input("Название своего действия", "·", key="custom_action")
+    else:
+        action_name = action_presets[preset_label]
+
+    # ── НОВОЕ: ПАРАМЕТР μ ───────────────────────────────────
+    st.header("🎛️ Уровень «классичности» (μ)")
+    st.caption("0.0 = максимально дикий результат | 1.0 = максимально классический")
+
+    mu_mode = st.radio(
+        "Режим синтеза",
+        options=["Дикий (μ ≈ 0.1)", "Сбалансированный (μ = 0.5)", "Классический (μ ≈ 0.9)"],
+        horizontal=True,
+        index=1
+    )
+
+    if mu_mode == "Дикий (μ ≈ 0.1)":
+        mu = 0.1
+    elif mu_mode == "Сбалансированный (μ = 0.5)":
+        mu = 0.5
+    else:
+        mu = 0.9
+
+    mu = st.slider("Точная настройка μ", 0.0, 1.0, mu, step=0.05, key="mu_slider")
 
     # ── КНОПКА СИНТЕЗА ─────────────────────────────────────
     if st.button("🚀 Синтезировать", type="primary", use_container_width=True):
@@ -1749,111 +2037,262 @@ with tab1:
         st.info("Выполните синтез в боковой панели.")
     else:
         result = st.session_state.last_result
-        mu_value = st.session_state.get("mu_slider", 0.5)
-
-        st.subheader(f"📊 Результат синтеза (μ = {mu_value:.2f})")
+        A = lib[atom_a_name] if 'atom_a_name' in locals() else None
+        B = lib[atom_b_name] if 'atom_b_name' in locals() else None
 
         if result.collapsed:
             st.error("💥 АРХИТЕКТУРА КОЛЛАПСИРОВАЛА")
-            st.markdown("**Все элементы носителя отождествились в одну точку.** Это доказывает невозможность данной архитектурной схемы.")
+            st.markdown(
+                "**Все элементы носителя отождествлены.** "
+                "Данная конфигурация структур и взаимодействия математически невозможна — это **no-go theorem**."
+            )
             st.metric("Количество наложенных равенств", result.equations_count)
-            with st.expander("🔬 Полные классы эквивалентности (коллапс)", expanded=True):
-                st.code("Все термы → одна точка", language="text")
+
+            with st.expander("🧾 Вынужденные равенства (первые 100)", expanded=False):
+                st.caption("Эти равенства были наложены коуравнителем:")
+                st.write(f"Всего равенств: {result.equations_count}")
         else:
             atom = result.atom
-            
-            # Индикатор режима
-            if mu_value < 0.3:
-                mode_text = "🌲 **Дикий режим** — минимальные отождествления, много теневых классов"
-                st.success(f"✅ **{atom.name}** — структура успешно синтезирована")
-            elif mu_value > 0.8:
-                mode_text = "🏛️ **Классический режим** — сильная нормализация, близко к классике"
-                st.success(f"✅ **{atom.name}** — структура успешно синтезирована")
-            else:
-                mode_text = "⚖️ **Сбалансированный режим**"
-                st.success(f"✅ **{atom.name}** — структура успешно синтезирована")
-            
-            st.caption(mode_text)
+            st.success(f"✅ **{atom.name}** — структура успешно синтезирована")
 
-            # Метрики
             col1, col2, col3, col4 = st.columns(4)
             with col1:
                 st.metric("Элементов в носителе", len(atom.carrier))
             with col2:
                 st.metric("Операций", len(atom.operations))
             with col3:
-                st.metric("Наложено равенств", result.equations_count)
+                st.metric("Равенств", result.equations_count)
             with col4:
-                nontrivial = sum(1 for elems in result.classes.values() if len(elems) > 1)
-                st.metric("Классов эквивалентности", len(result.classes), 
-                         delta=f"{nontrivial} нетривиальных")
+                st.metric("Классов эквивал.", len(result.classes))
 
             st.markdown(f"**Родители:** {', '.join(atom.parent_atoms)}")
-            st.markdown(f"**Взаимодействие:** `{atom.interaction}`")
+            st.markdown(f"**Взаимодействие:** {atom.interaction}")
 
-            # Авто-анализ
-            if mu_value < 0.3 and len(result.classes) > 15:
-                st.info("🔥 Очень дикий результат: много теневых классов и сложных отождествлений.")
-            elif mu_value > 0.8 and len(result.classes) < 8:
-                st.info("🧩 Структура почти классическая — сильное упрощение и прилипание.")
-            elif len(result.classes) > 25:
-                st.warning("⚠️ Большое количество классов — возможно, нужна ещё нормализация или выше μ.")
-
-            # Детали
-            detail_tab1, detail_tab2 = st.tabs(["📋 Носитель и операции", "🧾 Классы эквивалентности"])
+            # ── ВКЛАДКИ ДЛЯ ДЕТАЛЕЙ ─────────────────────────────
+            detail_tab1, detail_tab2 = st.tabs(["📊 Таблицы и граф", "🧾 Классы эквивалентности"])
 
             with detail_tab1:
                 st.subheader("🧬 Носитель новой структуры")
-                for i, el in enumerate(atom.carrier):
-                    st.write(f"**{i+1}.** `{el}`")
+                st.markdown(
+                    "Каждый элемент — это **класс эквивалентности**, "
+                    "возникший при склейке:"
+                )
+                for i, elem in enumerate(atom.carrier):
+                    st.write(f"**{i+1}.** `{elem}`")
 
                 st.subheader("🧮 Сохранённые операции")
-                for op, ar in atom.operations.items():
-                    st.write(f"`{op}` (арность {ar})")
+                ops_list = [
+                    f"`{op}` (арность {ar})" for op, ar in atom.operations.items()
+                ]
+                st.markdown(", ".join(ops_list))
 
-                # Место под таблицы действия и Кэли (добавим в следующем блоке)
-                st.caption("Таблицы Кэли и действия будут в следующем обновлении")
+                if action_name in atom.operations and B is not None:
+                    st.subheader(f"📊 Таблица действия `{action_name}` (B × A → A)")
+                    st.markdown(
+                        "Показывает результат **b · a** для каждого b из оператора "
+                        "и каждого a из целевой структуры:"
+                    )
+                    table_data = []
+                    rs = build_rewriting_system(A, action_name)
+                    for b_elem in B.carrier:
+                        row = [f"**{b_elem}**"]
+                        for a_elem in atom.carrier:
+                            action_term = Term(action_name, [Term(b_elem), Term(a_elem)])
+                            norm_action = rs.normalize(action_term)
+                            found = False
+                            if result.cc and norm_action in result.cc.parent:
+                                root = result.cc.find(norm_action)
+                                for rep, elems in result.classes.items():
+                                    if rep == root or root in elems or any(
+                                        result.cc.find(e) == root for e in elems
+                                    ):
+                                        row.append(f"`{repr(rep)}`")
+                                        found = True
+                                        break
+                            if not found:
+                                for rep, elems in result.classes.items():
+                                    if norm_action in elems or any(
+                                        repr(e) == repr(norm_action) for e in elems
+                                    ):
+                                        row.append(f"`{repr(rep)}`")
+                                        found = True
+                                        break
+                            if not found:
+                                row.append("—")
+                        table_data.append(row)
 
-            with detail_tab2:
-                with st.expander("🧾 Вынужденные равенства (нетривиальные)", expanded=False):
-                    st.caption(f"Всего равенств: {result.equations_count}")
-                    nontrivial = {rep: elems for rep, elems in result.classes.items() if len(elems) > 1}
-                    if nontrivial:
-                        text = ""
-                        for rep, elems in list(nontrivial.items())[:20]:
-                            text += f"{repr(rep)} ← {', '.join(map(repr, elems[:8]))}"
-                            if len(elems) > 8:
-                                text += " …"
-                            text += "\n"
-                        st.code(text)
-                    else:
-                        st.write("Все классы тривиальны.")
+                    for row in table_data:
+                        st.write(" | ".join(row))
+                    st.caption("Прочерк означает, что терм не попал ни в один класс (редкий случай).")
 
-                with st.expander("🔬 Полные классы эквивалентности", expanded=True):
-                    text = ""
-                    for rep, elems in sorted(result.classes.items(), key=lambda x: repr(x[0])):
-                        elems_str = ", ".join(map(repr, elems[:12]))
-                        if len(elems) > 12:
-                            elems_str += f" … (+{len(elems)-12})"
-                        text += f"{repr(rep)} → {{{elems_str}}}\n"
-                    st.code(text)
+                for op_name, arity in atom.operations.items():
+                    if op_name == action_name:
+                        continue
+                    if arity == 2:
+                        st.subheader(f"📊 Таблица Кэли для `{op_name}`")
+                        table_data = []
+                        for a1 in atom.carrier:
+                            row = [f"**{a1}**"]
+                            for a2 in atom.carrier:
+                                term = Term(op_name, [Term(a1), Term(a2)])
+                                found = False
+                                if result.cc and term in result.cc.parent:
+                                    root = result.cc.find(term)
+                                    norm_root = rs.normalize(root)
+                                    for rep, elems in result.classes.items():
+                                        if rep == norm_root or norm_root in elems or any(
+                                            result.cc.find(e) == result.cc.find(norm_root) for e in elems
+                                        ):
+                                            row.append(f"`{repr(rep)}`")
+                                            found = True
+                                            break
+                                    if not found:
+                                        for rep, elems in result.classes.items():
+                                            if rep == root or root in elems or any(
+                                                result.cc.find(e) == result.cc.find(root) for e in elems
+                                            ):
+                                                row.append(f"`{repr(rep)}`")
+                                                found = True
+                                                break
+                                if not found:
+                                    norm_term = rs.normalize(term)
+                                    for rep, elems in result.classes.items():
+                                        if norm_term in elems or any(
+                                            repr(e) == repr(norm_term) for e in elems
+                                        ):
+                                            row.append(f"`{repr(rep)}`")
+                                            found = True
+                                            break
+                                if not found:
+                                    row.append("—")
+                            table_data.append(row)
+                        for row in table_data:
+                            st.write(" | ".join(row))
 
-            # Граф (пока плейсхолдер)
-            st.subheader("📈 Архитектурный граф")
-            if st.button("Построить граф"):
-                with st.spinner("Генерация графа..."):
+                # ── ГРАФ ──────────────────────────────────────
+                st.subheader("🔗 Архитектурный граф структуры")
+                st.caption(
+                    "Узлы — классы эквивалентности. Размер — количество термов в классе. "
+                    "Синий = атом A, Зелёный = атом B, Фиолетовый = гибрид, Красный = теневой класс. "
+                    "Сплошные линии — замкнутые операции, пунктир — теневые, оранжевый пунктир — действие."
+                )
+                try:
                     fig = build_synthesis_graph(result)
                     st.pyplot(fig)
+                    plt.close(fig)
+                except Exception as e:
+                    st.warning(f"Не удалось построить граф: {e}")
 
-        # AI интерпретация
+            with detail_tab2:
+                # ── Вынужденные равенства ──
+                with st.expander("🧾 Вынужденные равенства (первые 100)", expanded=False):
+                    st.caption(
+                        "Эти равенства были наложены коуравнителем. "
+                        "Они показывают, какие именно термы были отождествлены."
+                    )
+                    equality_text = f"Всего равенств: {result.equations_count}\n"
+                    nontrivial = {
+                        rep: elems
+                        for rep, elems in result.classes.items()
+                        if len(elems) > 1
+                    }
+                    if nontrivial:
+                        equality_text += "Нетривиальные отождествления:\n"
+                        for rep, elems in list(nontrivial.items())[:20]:
+                            equality_text += f"{repr(rep)} ← {', '.join(map(repr, elems[:5]))}"
+                            if len(elems) > 5:
+                                equality_text += " ..."
+                            equality_text += "\n"
+                    else:
+                        equality_text += "Все классы тривиальны (неожиданно).\n"
+
+                    st.code(equality_text, language="text")
+
+                # ── Полные классы эквивалентности ──
+                with st.expander("🔬 Полные классы эквивалентности", expanded=False):
+                    st.caption(
+                        "Каждый класс — это множество термов, отождествлённых коуравнителем."
+                    )
+                    classes_text = ""
+                    for rep, elems in sorted(
+                        result.classes.items(), key=lambda x: repr(x[0])
+                    ):
+                        elems_str = ", ".join(map(repr, elems[:20]))
+                        if len(elems) > 20:
+                            elems_str += f" ... (+{len(elems) - 20})"
+                        classes_text += f"{repr(rep)} → {{{elems_str}}}\n"
+
+                    st.code(classes_text, language="text")
+
+            st.subheader("🔍 Проверка алгебраических свойств")
+            if "+" in atom.operations and action_name in atom.operations:
+                st.markdown(
+                    "✅ **Дистрибутивность** обеспечивается коуравнителем "
+                    "(встроена в классы эквивалентности)"
+                )
+            if any(
+                op in atom.operations
+                for op in ["0", "1", "e"]
+            ):
+                st.markdown("✅ **Нейтральный элемент** присутствует")
+            if len(atom.operations) == len(A.operations):
+                st.markdown("✅ Все операции целевой структуры **сохранены**")
+            elif len(atom.operations) > len(A.operations):
+                st.markdown("✅ Операции целевой структуры сохранены + добавлено действие")
+            else:
+                st.markdown(
+                    "⚠️ Часть операций целевой структуры **исчезла** при синтезе "
+                    "(возможно, они несовместимы с действием)"
+                )
+
         st.markdown("---")
-        if 'api_key' in locals() and api_key:
-            if st.button("🤖 Получить комментарий AI", type="secondary"):
-                with st.spinner("DeepSeek думает..."):
+        if api_key:
+            if st.button("🤖 Интерпретировать результат (AI)", type="secondary"):
+                with st.spinner("DeepSeek анализирует синтез..."):
+                    if result.collapsed:
+                        prompt = f"""Ты — эксперт по абстрактной алгебре и теории категорий.
+Синтез двух алгебраических структур привёл к КОЛЛАПСУ — все элементы носителя отождествились.
+Наложено равенств: {result.equations_count}
+
+Дай КОРОТКИЙ ответ (2-4 предложения):
+1. Почему это интересно (это no-go theorem)?
+2. Что именно вызвало коллапс?
+3. Какие архитектурные ограничения это демонстрирует?
+Отвечай на русском."""
+                    else:
+                        atom = result.atom
+                        carrier_str = ", ".join(atom.carrier[:10])
+                        ops_str = ", ".join(
+                            f"{op}:{ar}" for op, ar in atom.operations.items()
+                        )
+                        nontrivial_count = sum(
+                            1
+                            for elems in result.classes.values()
+                            if len(elems) > 1
+                        )
+                        prompt = f"""Ты — эксперт по абстрактной алгебре и теории категорий.
+Проанализируй результат архитектурного синтеза двух структур.
+
+Родитель A: {atom.parent_atoms[0] if atom.parent_atoms else 'неизвестно'}
+Родитель B: {atom.parent_atoms[1] if len(atom.parent_atoms) > 1 else 'неизвестно'}
+Взаимодействие: {atom.interaction}
+Носитель: {carrier_str} ({len(atom.carrier)} элементов)
+Операции: {ops_str}
+Нетривиальных классов эквивалентности: {nontrivial_count}
+Всего классов: {len(result.classes)}
+
+Дай КОРОТКИЙ ответ (2-4 предложения):
+1. Что это за структура?
+2. Почему она не схлопнулась?
+3. Интересна ли она математически?
+Отвечай на русском."""
                     comment = get_ai_comment(result, api_key)
-                    st.info(f"💬 **AI-комментарий:**\n\n{comment}")
+                    st.info(f"💬 **Комментарий AI:**\n\n{comment}")
         else:
-            st.caption("Введите API-ключ DeepSeek в боковой панели для AI-анализа.")
+            st.caption(
+                "Введите API-ключ DeepSeek в боковой панели для AI-интерпретации."
+            )
+
 with tab2:
     for name in sorted(lib.keys()):
         atom = lib[name]
