@@ -236,7 +236,8 @@ class SynthesisResult:
 
 def synthesize(A: Atom, B: Atom, action_name: str = "·", 
                user_equations: List[Tuple[str, str]] = None,
-               custom_equations: List[Tuple[str, str]] = None) -> SynthesisResult:
+               custom_equations: List[Tuple[str, str]] = None,
+               aggressive_normalization: bool = False) -> SynthesisResult:
     all_ops = {}
     all_ops.update(A.operations)
     all_ops.update(B.operations)
@@ -316,6 +317,14 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·",
 
     # ── НОРМАЛИЗАЦИЯ ЧЕРЕЗ REWRITING (ФИНАЛЬНАЯ) ───────
     rs = build_rewriting_system(A, action_name)
+
+    # Если включена агрессивная нормализация — добавляем кастомные равенства как правила редукции
+    if aggressive_normalization and custom_equations:
+        for left_str, right_str in custom_equations:
+            left_term = parse_term_string(left_str)
+            right_term = parse_term_string(right_str)
+            if left_term is not None and right_term is not None:
+                rs.add_rule(left_term, right_term)
 
     term_to_normal = {}
     for t in list(cc.parent.keys()):
@@ -1796,6 +1805,12 @@ with st.sidebar:
         help="Каждое равенство на отдельной строке. При синтезе всё автоматически разберётся."
     )
 
+    aggressive_norm = st.checkbox(
+        "Агрессивная нормализация (полностью упрощать по твоим равенствам)",
+        value=False,
+        help="По умолчанию выключено — чтобы видеть все артефакты и 'дикие' результаты. Включи только когда хочешь чистый классический итог."
+    )
+
     # Кнопка очистки (опционально)
     if st.button("🧹 Очистить равенства", key="clear_eqs"):
         st.session_state.custom_eqs = []
@@ -1835,7 +1850,8 @@ with st.sidebar:
             result = synthesize(
                 A_obj, B_obj, action_name,
                 user_equations = st.session_state.identifications if st.session_state.identifications else None,
-                custom_equations = parsed_custom if parsed_custom else None
+                custom_equations = parsed_custom if parsed_custom else None,
+                aggressive_normalization = aggressive_norm
             )
         st.session_state.last_result = result
 
@@ -2118,4 +2134,4 @@ with tab2:
             st.write(f"Операции: {', '.join(f'{op}:{ar}' for op, ar in atom.operations.items())}")
 
 st.markdown("---")
-st.caption("Hybrid Synthesis Laboratory v2.1 | L. Shcherbakov (2025)")
+st.caption("Hybrid Synthesis Laboratory v2.1 | L. Shcherbakov (2026)")
