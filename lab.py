@@ -429,23 +429,27 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·",
                 classes[norm_rep] = classes[rep]
             del classes[rep]
 
-    # === БЕЗОПАСНОЕ ДОБАВЛЕНИЕ ACTION-ТЕРМОВ В КЛАССЫ ===
-    # Гарантируем, что все *(b, a) попадают в финальные классы
+    # === ПРАВИЛЬНОЕ ДОБАВЛЕНИЕ ACTION-ТЕРМОВ ===
+    # Регистрируем action-термы и в classes, и в CongruenceClosure
     if action_name and B is not None:
         for b_elem in B.carrier:
             for a_elem in A.carrier:
                 action_term = Term(action_name, [Term(b_elem), Term(a_elem)])
                 norm_action = rs.normalize(action_term)
-                # Ищем класс, в который должен попасть этот терм
+
+                # Добавляем в CongruenceClosure
+                if result.cc is not None:
+                    if norm_action not in result.cc.parent:
+                        result.cc.parent[norm_action] = norm_action
+                        result.cc.rank[norm_action] = 0
+
+                # Добавляем в classes
                 placed = False
-                for rep, elems in list(classes.items()):
-                    if norm_action == rep or norm_action in elems:
-                        if norm_action not in elems:
-                            classes[rep].append(norm_action)
+                for rep in list(classes.keys()):
+                    if norm_action == rep or norm_action in classes[rep]:
                         placed = True
                         break
                 if not placed:
-                    # Если не нашли — создаём новый класс (редко)
                     classes[norm_action] = [norm_action]
 
     # Проверка коллапса
@@ -1951,17 +1955,12 @@ with tab1:
                             action_term = Term(action_name, [Term(b_elem), Term(a_elem)])
                             norm_action = rs.normalize(action_term)
 
-                            # Используем CongruenceClosure (result.cc) для поиска
+                            # Простой поиск (теперь термы должны быть зарегистрированы)
                             found_rep = None
-                            if result.cc and norm_action in result.cc.parent:
-                                root = result.cc.find(norm_action)
-                                for rep, elems in result.classes.items():
-                                    if rep == root:
-                                        found_rep = rep
-                                        break
-                                    if any(result.cc.find(e) == root for e in elems):
-                                        found_rep = rep
-                                        break
+                            for rep, elems in result.classes.items():
+                                if norm_action == rep or norm_action in elems:
+                                    found_rep = rep
+                                    break
 
                             if found_rep is not None:
                                 row.append(f"`{repr(found_rep)}`")
