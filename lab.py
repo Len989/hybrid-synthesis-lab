@@ -1951,18 +1951,17 @@ with tab1:
                             action_term = Term(action_name, [Term(b_elem), Term(a_elem)])
                             norm_action = rs.normalize(action_term)
 
-                            # Самый надёжный поиск: проверяем все элементы во всех классах
+                            # Используем CongruenceClosure (result.cc) для поиска
                             found_rep = None
-                            for rep, elems in result.classes.items():
-                                if norm_action == rep:
-                                    found_rep = rep
-                                    break
-                                for e in elems:
-                                    if norm_action == e:
+                            if result.cc and norm_action in result.cc.parent:
+                                root = result.cc.find(norm_action)
+                                for rep, elems in result.classes.items():
+                                    if rep == root:
                                         found_rep = rep
                                         break
-                                if found_rep:
-                                    break
+                                    if any(result.cc.find(e) == root for e in elems):
+                                        found_rep = rep
+                                        break
 
                             if found_rep is not None:
                                 row.append(f"`{repr(found_rep)}`")
@@ -2150,4 +2149,4 @@ with tab2:
             st.write(f"Операции: {', '.join(f'{op}:{ar}' for op, ar in atom.operations.items())}")
 
 st.markdown("---")
-st.caption("Hybrid Synthesis Laboratory v2.1 | L. Shcherbakov (2026)")
+st.caption("Hybrid Synthesis Laboratory v2.1 | L. Shcherbakov (2025)")
