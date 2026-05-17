@@ -460,9 +460,8 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·",
     new_operations = {}
     for op, arity in A.operations.items():
         if arity == 0:
-            const_term = Term(op, [])
-            root = cc.find(const_term)
-            if root in carrier_repr_map:
+            # Всегда добавляем константы A, если они в финальном носителе
+            if op in new_carrier:
                 new_operations[op] = 0
         else:
             new_operations[op] = arity
@@ -2134,4 +2133,4 @@ with tab2:
             st.write(f"Операции: {', '.join(f'{op}:{ar}' for op, ar in atom.operations.items())}")
 
 st.markdown("---")
-st.caption("Hybrid Synthesis Laboratory v2.1 | L. Shcherbakov (2026)")
+st.caption("Hybrid Synthesis Laboratory v2.1 | L. Shcherbakov (2025)")
