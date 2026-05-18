@@ -1955,23 +1955,27 @@ with tab1:
                             action_term = Term(action_name, [Term(b_elem), Term(a_elem)])
                             norm_action = rs.normalize(action_term)
 
-                            # Улучшенный поиск представителя
+                            # Приоритет — поиск через CongruenceClosure
                             found_rep = None
-                            for rep, elems in result.classes.items():
-                                # Прямая проверка
-                                if norm_action == rep or norm_action in elems:
-                                    found_rep = rep
-                                    break
-                                # Проверка через CongruenceClosure
-                                if result.cc and norm_action in result.cc.parent:
-                                    root = result.cc.find(norm_action)
-                                    if rep == root or any(result.cc.find(e) == root for e in elems):
+                            if result.cc and norm_action in result.cc.parent:
+                                root = result.cc.find(norm_action)
+                                for rep, elems in result.classes.items():
+                                    if rep == root:
                                         found_rep = rep
                                         break
-                                # Проверка по строковому представлению
-                                if repr(norm_action) == repr(rep) or any(repr(norm_action) == repr(e) for e in elems):
-                                    found_rep = rep
-                                    break
+                                    if any(result.cc.find(e) == root for e in elems):
+                                        found_rep = rep
+                                        break
+
+                            # Запасная проверка
+                            if found_rep is None:
+                                for rep, elems in result.classes.items():
+                                    if norm_action == rep or norm_action in elems:
+                                        found_rep = rep
+                                        break
+                                    if repr(norm_action) == repr(rep) or any(repr(norm_action) == repr(e) for e in elems):
+                                        found_rep = rep
+                                        break
 
                             if found_rep is not None:
                                 row.append(f"`{repr(found_rep)}`")
