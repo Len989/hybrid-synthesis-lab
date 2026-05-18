@@ -2002,6 +2002,7 @@ with tab1:
                                                 found = True
                                                 break
                                 if not found:
+                                    rs = build_rewriting_system(A, action_name)
                                     norm_term = rs.normalize(term)
                                     for rep, elems in result.classes.items():
                                         if norm_term in elems or any(
