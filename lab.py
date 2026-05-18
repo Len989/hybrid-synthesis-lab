@@ -23,9 +23,10 @@ import io
 class Term:
     """Символьный терм для алгебраических выражений."""
 
-    def __init__(self, head: str, args: List["Term"] | None = None):
+    def __init__(self, head: str, args: List["Term"] | None = None, provenance: str = ""):
         self.head = head
         self.args = args or []
+        self.provenance = provenance  # для отладки и улучшения отображения (не влияет на == и hash)
 
     def __repr__(self):
         if not self.args:
