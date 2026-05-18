@@ -430,12 +430,11 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·",
                 classes[norm_rep] = classes[rep]
             del classes[rep]
 
-    # === ПРАВИЛЬНОЕ ДОБАВЛЕНИЕ ACTION-ТЕРМОВ ===
-    # Регистрируем action-термы и в classes, и в CongruenceClosure
+    # === ПРАВИЛЬНОЕ ДОБАВЛЕНИЕ ACTION-ТЕРМОВ (с provenance) ===
     if action_name and B is not None:
         for b_elem in B.carrier:
             for a_elem in A.carrier:
-                action_term = Term(action_name, [Term(b_elem), Term(a_elem)])
+                action_term = Term(action_name, [Term(b_elem), Term(a_elem)], provenance="action")
                 norm_action = rs.normalize(action_term)
 
                 # Добавляем в CongruenceClosure
@@ -444,10 +443,12 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·",
                         cc.parent[norm_action] = norm_action
                         cc.rank[norm_action] = 0
 
-                # Добавляем в classes
+                # Добавляем в classes (даже если нормализовался в существующий)
                 placed = False
                 for rep in list(classes.keys()):
                     if norm_action == rep or norm_action in classes[rep]:
+                        if norm_action not in classes[rep]:
+                            classes[rep].append(norm_action)
                         placed = True
                         break
                 if not placed:
@@ -2165,4 +2166,4 @@ with tab2:
             st.write(f"Операции: {', '.join(f'{op}:{ar}' for op, ar in atom.operations.items())}")
 
 st.markdown("---")
-st.caption("Hybrid Synthesis Laboratory v2.1 | L. Shcherbakov (2025)")
+st.caption("Hybrid Synthesis Laboratory v2.1 | L. Shcherbakov (2026)")
