@@ -1955,10 +1955,21 @@ with tab1:
                             action_term = Term(action_name, [Term(b_elem), Term(a_elem)])
                             norm_action = rs.normalize(action_term)
 
-                            # Простой поиск (теперь термы должны быть зарегистрированы)
+                            # Улучшенный поиск представителя
                             found_rep = None
                             for rep, elems in result.classes.items():
+                                # Прямая проверка
                                 if norm_action == rep or norm_action in elems:
+                                    found_rep = rep
+                                    break
+                                # Проверка через CongruenceClosure
+                                if result.cc and norm_action in result.cc.parent:
+                                    root = result.cc.find(norm_action)
+                                    if rep == root or any(result.cc.find(e) == root for e in elems):
+                                        found_rep = rep
+                                        break
+                                # Проверка по строковому представлению
+                                if repr(norm_action) == repr(rep) or any(repr(norm_action) == repr(e) for e in elems):
                                     found_rep = rep
                                     break
 
