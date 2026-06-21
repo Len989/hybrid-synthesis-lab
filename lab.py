@@ -908,6 +908,18 @@ def create_builtin_library() -> Dict[str, Atom]:
     )
     lib[Z2.name] = Z2
 
+    # СЕМЯ — самая простая структура
+    Seed = Atom(
+        name="Seed (Trivial)",
+        carrier=["e"],
+        operations={"*": 2, "e": 0},
+        axioms=[
+            (Term("*", [Term("e"), Term("e")]), Term("e"))
+        ],
+        description="Минимальная структура: один элемент и тривиальная операция."
+    )
+    lib[Seed.name] = Seed
+
     # Z2 (ring)
     Z2_ring = Atom(
         name="Z₂ (ring)",
