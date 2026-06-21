@@ -1764,7 +1764,7 @@ def create_builtin_library() -> Dict[str, Atom]:
     )
     lib[SO2_GF2.name] = SO2_GF2
 
-        print(f"✅ Total structures in library: {len(lib)}")
+    print(f"✅ Total structures in library: {len(lib)}")
 
     return lib
 
