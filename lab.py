@@ -1876,6 +1876,63 @@ def create_builtin_library() -> Dict[str, Atom]:
         description="Группа Лоренца O(1,1) над GF(2) — модель для преобразований пространства Минковского."
     )
     lib[Lorentz_GF2.name] = Lorentz_GF2
+    # Дикое пространство Минковского — 16 элементов, с нарушенной аддитивностью
+    Wild_Minkowski = Atom(
+        name="Wild Minkowski (t, x, y, z)",
+        carrier=["0", "t", "x", "y", "z", "t+x", "t+y", "t+z", "x+y", "x+z", "y+z", "t+x+y", "t+x+z", "t+y+z", "x+y+z", "t+x+y+z"],
+        operations={
+            "+": 2,   # сложение с нарушенной аддитивностью
+            "0": 0,   # нейтральный элемент
+            "-": 1    # обратный элемент (в GF(2) равен самому себе)
+        },
+        axioms=[
+            # 1. Нейтральный элемент работает
+            (Term("+", [Term("0"), Term("0")]), Term("0")),
+            (Term("+", [Term("0"), Term("t")]), Term("t")),
+            (Term("+", [Term("0"), Term("x")]), Term("x")),
+            (Term("+", [Term("0"), Term("y")]), Term("y")),
+            (Term("+", [Term("0"), Term("z")]), Term("z")),
+            (Term("+", [Term("t"), Term("0")]), Term("t")),
+            (Term("+", [Term("x"), Term("0")]), Term("x")),
+            (Term("+", [Term("y"), Term("0")]), Term("y")),
+            (Term("+", [Term("z"), Term("0")]), Term("z")),
+
+            # 2. Сам себе обратный (GF(2))
+            (Term("+", [Term("t"), Term("t")]), Term("0")),
+            (Term("+", [Term("x"), Term("x")]), Term("0")),
+            (Term("+", [Term("y"), Term("y")]), Term("0")),
+            (Term("+", [Term("z"), Term("z")]), Term("0")),
+
+            # 3. Базовые комбинации (часть из них мы НЕ задаём — они уйдут в тень)
+            (Term("+", [Term("t"), Term("x")]), Term("t+x")),
+            (Term("+", [Term("t"), Term("y")]), Term("t+y")),
+            (Term("+", [Term("t"), Term("z")]), Term("t+z")),
+            (Term("+", [Term("x"), Term("y")]), Term("x+y")),
+            (Term("+", [Term("x"), Term("z")]), Term("x+z")),
+            (Term("+", [Term("y"), Term("z")]), Term("y+z")),
+
+            # 4. Обратный элемент (в GF(2) равен самому себе)
+            (Term("-", [Term("0")]), Term("0")),
+            (Term("-", [Term("t")]), Term("t")),
+            (Term("-", [Term("x")]), Term("x")),
+            (Term("-", [Term("y")]), Term("y")),
+            (Term("-", [Term("z")]), Term("z")),
+            (Term("-", [Term("t+x")]), Term("t+x")),
+            (Term("-", [Term("t+y")]), Term("t+y")),
+            (Term("-", [Term("t+z")]), Term("t+z")),
+            (Term("-", [Term("x+y")]), Term("x+y")),
+            (Term("-", [Term("x+z")]), Term("x+z")),
+            (Term("-", [Term("y+z")]), Term("y+z")),
+            (Term("-", [Term("t+x+y")]), Term("t+x+y")),
+            (Term("-", [Term("t+x+z")]), Term("t+x+z")),
+            (Term("-", [Term("t+y+z")]), Term("t+y+z")),
+            (Term("-", [Term("x+y+z")]), Term("x+y+z")),
+            (Term("-", [Term("t+x+y+z")]), Term("t+x+y+z")),
+        ],
+        description="Дикое пространство Минковского с нарушенной аддитивностью."
+    )
+    lib[Wild_Minkowski.name] = Wild_Minkowski
+
 
     print(f"✅ Total structures in library: {len(lib)}")
 
