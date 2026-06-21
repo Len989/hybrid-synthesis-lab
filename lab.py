@@ -1738,7 +1738,7 @@ def create_builtin_library() -> Dict[str, Atom]:
     )
     lib[V2_GF2.name] = V2_GF2
 
-        # Группа вращений SO(2) над GF(2) — группа порядка 2
+    # Группа вращений SO(2) над GF(2) — группа порядка 2
     SO2_GF2 = Atom(
         name="SO(2) over GF(2)",
         carrier=["I", "R"],  # I — тождество, R — отражение/вращение на 180°
@@ -1765,6 +1765,7 @@ def create_builtin_library() -> Dict[str, Atom]:
     lib[SO2_GF2.name] = SO2_GF2
 
         print(f"✅ Total structures in library: {len(lib)}")
+
     return lib
 
 
