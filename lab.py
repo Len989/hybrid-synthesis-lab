@@ -1933,6 +1933,50 @@ def create_builtin_library() -> Dict[str, Atom]:
     )
     lib[Wild_Minkowski.name] = Wild_Minkowski
 
+    # Дикая группа Лоренца — с действием, которое заведомо уходит в тень
+    Wild_Lorentz = Atom(
+        name="Wild Lorentz Group (B, P)",
+        carrier=["I", "B", "P", "BP"],
+        operations={
+            "∘": 2,
+            "I": 0,
+            "inv": 1
+        },
+        axioms=[
+            # Тождество
+            (Term("∘", [Term("I"), Term("I")]), Term("I")),
+            (Term("∘", [Term("I"), Term("B")]), Term("B")),
+            (Term("∘", [Term("I"), Term("P")]), Term("P")),
+            (Term("∘", [Term("I"), Term("BP")]), Term("BP")),
+            (Term("∘", [Term("B"), Term("I")]), Term("B")),
+            (Term("∘", [Term("P"), Term("I")]), Term("P")),
+            (Term("∘", [Term("BP"), Term("I")]), Term("BP")),
+
+            # Буст
+            (Term("∘", [Term("B"), Term("B")]), Term("I")),
+            (Term("∘", [Term("B"), Term("P")]), Term("BP")),
+            (Term("∘", [Term("P"), Term("B")]), Term("BP")),
+ 
+            # Отражение
+            (Term("∘", [Term("P"), Term("P")]), Term("I")),
+
+            # Композиция
+            (Term("∘", [Term("BP"), Term("BP")]), Term("I")),
+            (Term("∘", [Term("BP"), Term("B")]), Term("P")),
+            (Term("∘", [Term("BP"), Term("P")]), Term("B")),
+            (Term("∘", [Term("B"), Term("BP")]), Term("P")),
+            (Term("∘", [Term("P"), Term("BP")]), Term("B")),
+
+            # Обратные
+            (Term("inv", [Term("I")]), Term("I")),
+            (Term("inv", [Term("B")]), Term("B")),
+            (Term("inv", [Term("P")]), Term("P")),
+            (Term("inv", [Term("BP")]), Term("BP")),
+        ],
+        description="Дикая группа Лоренца — действие уходит в тень."
+    )
+    lib[Wild_Lorentz.name] = Wild_Lorentz
+
 
     print(f"✅ Total structures in library: {len(lib)}")
 
