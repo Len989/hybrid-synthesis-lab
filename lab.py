@@ -1697,7 +1697,74 @@ def create_builtin_library() -> Dict[str, Atom]:
     )
     lib[Quat_Z3.name] = Quat_Z3
 
-    print(f"✅ Total structures in library: {len(lib)}")
+    # GF(2)^2 — двумерное векторное пространство над полем из двух элементов
+    V2_GF2 = Atom(
+        name="V₂ over GF(2) for Minkowski",
+        carrier=["0", "e1", "e2", "e1+e2"],  # 4 вектора
+        operations={
+            "+": 2,   # сложение векторов
+            "0": 0,   # нулевой вектор
+            "-": 1    # обратный элемент (в GF(2) совпадает с самим собой)
+        },
+        axioms=[
+            # Сложение с нулём
+            (Term("+", [Term("0"), Term("0")]), Term("0")),
+            (Term("+", [Term("0"), Term("e1")]), Term("e1")),
+            (Term("+", [Term("0"), Term("e2")]), Term("e2")),
+            (Term("+", [Term("0"), Term("e1+e2")]), Term("e1+e2")),
+        
+            # Коммутативность + сам себе обратный
+            (Term("+", [Term("e1"), Term("e1")]), Term("0")),
+            (Term("+", [Term("e2"), Term("e2")]), Term("0")),
+            (Term("+", [Term("e1+e2"), Term("e1+e2")]), Term("0")),
+        
+            # Сложение базисных векторов
+            (Term("+", [Term("e1"), Term("e2")]), Term("e1+e2")),
+            (Term("+", [Term("e2"), Term("e1")]), Term("e1+e2")),
+        
+            # Сложение с e1+e2
+            (Term("+", [Term("e1"), Term("e1+e2")]), Term("e2")),
+            (Term("+", [Term("e2"), Term("e1+e2")]), Term("e1")),
+            (Term("+", [Term("e1+e2"), Term("e1")]), Term("e2")),
+            (Term("+", [Term("e1+e2"), Term("e2")]), Term("e1")),
+        
+            # Обратный элемент (в GF(2) обратный = сам себе)
+            (Term("-", [Term("0")]), Term("0")),
+            (Term("-", [Term("e1")]), Term("e1")),
+            (Term("-", [Term("e2")]), Term("e2")),
+            (Term("-", [Term("e1+e2")]), Term("e1+e2")),
+        ],
+        description="Двумерное векторное пространство над GF(2) — конечная модель для пространства Минковского."
+    )
+    lib[V2_GF2.name] = V2_GF2
+
+        # Группа вращений SO(2) над GF(2) — группа порядка 2
+    SO2_GF2 = Atom(
+        name="SO(2) over GF(2)",
+        carrier=["I", "R"],  # I — тождество, R — отражение/вращение на 180°
+        operations={
+            "∘": 2,   # композиция преобразований
+            "I": 0,   # нейтральный элемент (тождество)
+            "inv": 1  # обратное преобразование
+        },
+        axioms=[
+            # Тождество — нейтральный элемент
+            (Term("∘", [Term("I"), Term("I")]), Term("I")),
+            (Term("∘", [Term("I"), Term("R")]), Term("R")),
+            (Term("∘", [Term("R"), Term("I")]), Term("R")),
+        
+            # R ∘ R = I (вращение на 180° дважды даёт тождество)
+            (Term("∘", [Term("R"), Term("R")]), Term("I")),
+        
+            # Обратные элементы
+            (Term("inv", [Term("I")]), Term("I")),
+            (Term("inv", [Term("R")]), Term("R")),
+        ],
+        description="Конечная группа вращений SO(2) над GF(2) — модель для группы Лоренца."
+    )
+    lib[SO2_GF2.name] = SO2_GF2
+
+        print(f"✅ Total structures in library: {len(lib)}")
     return lib
 
 
