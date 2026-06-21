@@ -1764,6 +1764,119 @@ def create_builtin_library() -> Dict[str, Atom]:
     )
     lib[SO2_GF2.name] = SO2_GF2
 
+    # V₄ for Minkowski (4-мерное пространство-время над GF(2))
+    V4_Minkowski = Atom(
+        name="V₄ for Minkowski (t, x, y, z)",
+        carrier=["0", "t", "x", "y", "z", "t+x", "t+y", "t+z", "x+y", "x+z", "y+z", "t+x+y", "t+x+z", "t+y+z", "x+y+z", "t+x+y+z"],
+        operations={
+            "+": 2,   # сложение векторов
+            "0": 0,   # нулевой вектор
+            "-": 1    # обратный элемент (в GF(2) совпадает с самим собой)
+        },
+        axioms=[
+            # Сложение с нулём
+            (Term("+", [Term("0"), Term("0")]), Term("0")),
+            (Term("+", [Term("0"), Term("t")]), Term("t")),
+            (Term("+", [Term("0"), Term("x")]), Term("x")),
+            (Term("+", [Term("0"), Term("y")]), Term("y")),
+            (Term("+", [Term("0"), Term("z")]), Term("z")),
+            (Term("+", [Term("0"), Term("t+x")]), Term("t+x")),
+            (Term("+", [Term("0"), Term("t+y")]), Term("t+y")),
+            (Term("+", [Term("0"), Term("t+z")]), Term("t+z")),
+            (Term("+", [Term("0"), Term("x+y")]), Term("x+y")),
+            (Term("+", [Term("0"), Term("x+z")]), Term("x+z")),
+            (Term("+", [Term("0"), Term("y+z")]), Term("y+z")),
+            (Term("+", [Term("0"), Term("t+x+y")]), Term("t+x+y")),
+            (Term("+", [Term("0"), Term("t+x+z")]), Term("t+x+z")),
+            (Term("+", [Term("0"), Term("t+y+z")]), Term("t+y+z")),
+            (Term("+", [Term("0"), Term("x+y+z")]), Term("x+y+z")),
+            (Term("+", [Term("0"), Term("t+x+y+z")]), Term("t+x+y+z")),
+        
+            # Сам себе обратный (GF(2))
+            (Term("+", [Term("t"), Term("t")]), Term("0")),
+            (Term("+", [Term("x"), Term("x")]), Term("0")),
+            (Term("+", [Term("y"), Term("y")]), Term("0")),
+            (Term("+", [Term("z"), Term("z")]), Term("0")),
+        
+            # Сложение базисных векторов
+            (Term("+", [Term("t"), Term("x")]), Term("t+x")),
+            (Term("+", [Term("t"), Term("y")]), Term("t+y")),
+            (Term("+", [Term("t"), Term("z")]), Term("t+z")),
+            (Term("+", [Term("x"), Term("y")]), Term("x+y")),
+            (Term("+", [Term("x"), Term("z")]), Term("x+z")),
+            (Term("+", [Term("y"), Term("z")]), Term("y+z")),
+        
+            # Остальные комбинации (программа выведет их автоматически через замкнутость)
+            # Но для безопасности можно добавить все остальные 256 комбинаций
+            # Это слишком долго писать вручную, поэтому мы полагаемся на 
+            # систему переписывания, которая выведет их из коммутативности и ассоциативности.
+        
+            # Обратный элемент (в GF(2) равен самому себе)
+            (Term("-", [Term("0")]), Term("0")),
+            (Term("-", [Term("t")]), Term("t")),
+            (Term("-", [Term("x")]), Term("x")),
+            (Term("-", [Term("y")]), Term("y")),
+            (Term("-", [Term("z")]), Term("z")),
+            (Term("-", [Term("t+x")]), Term("t+x")),
+            (Term("-", [Term("t+y")]), Term("t+y")),
+            (Term("-", [Term("t+z")]), Term("t+z")),
+            (Term("-", [Term("x+y")]), Term("x+y")),
+            (Term("-", [Term("x+z")]), Term("x+z")),
+            (Term("-", [Term("y+z")]), Term("y+z")),
+            (Term("-", [Term("t+x+y")]), Term("t+x+y")),
+            (Term("-", [Term("t+x+z")]), Term("t+x+z")),
+            (Term("-", [Term("t+y+z")]), Term("t+y+z")),
+            (Term("-", [Term("x+y+z")]), Term("x+y+z")),
+            (Term("-", [Term("t+x+y+z")]), Term("t+x+y+z")),
+        ],
+        description="4-мерное векторное пространство над GF(2) для моделирования пространства Минковского с сигнатурой."
+    )
+    lib[V4_Minkowski.name] = V4_Minkowski
+
+    # Группа Лоренца O(1,1) над GF(2) — 4 элемента
+    Lorentz_GF2 = Atom(
+        name="Lorentz group (1+1) over GF(2)",
+        carrier=["I", "B", "P", "BP"],  # I — тождество, B — буст, P — пространственное отражение, BP — их композиция
+        operations={
+            "∘": 2,   # композиция
+            "I": 0,   # нейтральный элемент
+            "inv": 1  # обратный элемент
+        },
+        axioms=[
+            # I — нейтральный элемент
+            (Term("∘", [Term("I"), Term("I")]), Term("I")),
+            (Term("∘", [Term("I"), Term("B")]), Term("B")),
+            (Term("∘", [Term("I"), Term("P")]), Term("P")),
+            (Term("∘", [Term("I"), Term("BP")]), Term("BP")),
+            (Term("∘", [Term("B"), Term("I")]), Term("B")),
+            (Term("∘", [Term("P"), Term("I")]), Term("P")),
+            (Term("∘", [Term("BP"), Term("I")]), Term("BP")),
+        
+            # B — буст (меняет время и пространство)
+            (Term("∘", [Term("B"), Term("B")]), Term("I")),   # B^2 = I (в GF(2) буст дважды даёт тождество)
+            (Term("∘", [Term("B"), Term("P")]), Term("BP")),  # B ∘ P = BP
+            (Term("∘", [Term("P"), Term("B")]), Term("BP")),  # P ∘ B = BP
+         
+            # P — пространственное отражение
+            (Term("∘", [Term("P"), Term("P")]), Term("I")),   # P^2 = I
+        
+            # BP — композиция (B ∘ P)
+            (Term("∘", [Term("BP"), Term("BP")]), Term("I")), # (BP)^2 = I
+            (Term("∘", [Term("BP"), Term("B")]), Term("P")),  # BP ∘ B = P
+            (Term("∘", [Term("BP"), Term("P")]), Term("B")),  # BP ∘ P = B
+            (Term("∘", [Term("B"), Term("BP")]), Term("P")),  # B ∘ BP = P
+            (Term("∘", [Term("P"), Term("BP")]), Term("B")),  # P ∘ BP = B
+        
+            # Обратные элементы
+            (Term("inv", [Term("I")]), Term("I")),
+            (Term("inv", [Term("B")]), Term("B")),
+            (Term("inv", [Term("P")]), Term("P")),
+            (Term("inv", [Term("BP")]), Term("BP")),
+        ],
+        description="Группа Лоренца O(1,1) над GF(2) — модель для преобразований пространства Минковского."
+    )
+    lib[Lorentz_GF2.name] = Lorentz_GF2
+
     print(f"✅ Total structures in library: {len(lib)}")
 
     return lib
