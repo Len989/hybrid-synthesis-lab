@@ -1539,6 +1539,30 @@ def create_builtin_library() -> Dict[str, Atom]:
     )
     lib[Omega2.name] = Omega2
 
+    # Атом "Two" — минимальная структура с двумя элементами
+    Two = Atom(
+        name="Two Elements (0, e)",
+        carrier=["0", "e"],
+        operations={
+            "*": 2,   # бинарная операция
+            "0": 0,   # нейтральный элемент (пока номинально)
+            "e": 0    # потенциальный единичный элемент
+        },
+        axioms=[
+            # 1. Тривиальные умножения (чтобы они не схлопнулись в 0)
+            (Term("*", [Term("0"), Term("0")]), Term("0")),
+            (Term("*", [Term("0"), Term("e")]), Term("e")),
+            (Term("*", [Term("e"), Term("0")]), Term("e")),
+            (Term("*", [Term("e"), Term("e")]), Term("e")),
+        
+            # 2. Константы как элементы
+            (Term("0", []), Term("0")),
+            (Term("e", []), Term("e")),
+        ],
+        description="Минимальная структура с двумя элементами 0 и e, где операция * не схлопывает их."
+    )
+    lib[Two.name] = Two
+
     # Free Magma (1 generator, depth ≤ 2)
     Magma1 = Atom(
         name="Free Magma (1 generator, depth ≤ 2)",
