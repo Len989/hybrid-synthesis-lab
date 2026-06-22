@@ -2522,7 +2522,7 @@ with st.sidebar:
             
    
 # Основная область
-tab1, tab2 = st.tabs(["🔬 Результат", "📖 Библиотека"])
+tab1, tab2, tab3 = st.tabs(["🔬 Результат", "📖 Библиотека", "📊 Фазовая диаграмма"])
 
 with tab1:
     if 'last_result' not in st.session_state:
@@ -2823,6 +2823,33 @@ with tab2:
         with st.expander(f"{'🔷' if atom.is_synthetic else '💠'} {name}"):
             st.write(f"Носитель: {', '.join(atom.carrier)}")
             st.write(f"Операции: {', '.join(f'{op}:{ar}' for op, ar in atom.operations.items())}")
+
+with tab3:
+    st.subheader("📊 Фазовая диаграмма структур")
+    st.caption("Визуализация зависимости числа классов от размера носителя и типа структуры.")
+    
+    if 'logger' not in st.session_state:
+        st.session_state.logger = ExperimentLogger()
+    
+    if 'last_result' in st.session_state and st.button("📥 Добавить текущий результат в историю"):
+        context = {
+            "atom_a": atom_a_name if 'atom_a_name' in locals() else "unknown",
+            "atom_b": atom_b_name if 'atom_b_name' in locals() else "unknown",
+            "action": action_name if 'action_name' in locals() else "·"
+        }
+        st.session_state.logger.log(st.session_state.last_result, context)
+        st.success("✅ Добавлено!")
+    
+    if st.session_state.logger.history:
+        st.write(f"📝 В истории: {len(st.session_state.logger.history)} экспериментов")
+        fig = st.session_state.logger.plot_phase_diagram()
+        st.pyplot(fig)
+        plt.close(fig)
+        
+        df = st.session_state.logger.get_phase_data()
+        st.dataframe(df, use_container_width=True)
+    else:
+        st.info("Пока нет данных. Проведите синтез и добавьте результат в историю.")
 
 st.markdown("---")
 st.caption("Hybrid Synthesis Laboratory v2.1 | L. Shcherbakov (2026)")
