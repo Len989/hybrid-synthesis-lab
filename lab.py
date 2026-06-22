@@ -2547,16 +2547,40 @@ with tab1:
             atom = result.atom
             st.success(f"✅ **{atom.name}** — структура успешно синтезирована")
 
-            col1, col2, col3, col4 = st.columns(4)
+            # ── ОСНОВНЫЕ МЕТРИКИ ─────────────────────────────
+            metrics = MetricsCalculator.calculate(result)
+            
+            col1, col2, col3, col4, col5 = st.columns(5)
             with col1:
-                st.metric("Элементов в носителе", len(atom.carrier))
+                st.metric("Элементов в носителе", metrics["carrier_size"])
             with col2:
                 st.metric("Операций", len(atom.operations))
             with col3:
                 st.metric("Равенств", result.equations_count)
             with col4:
-                st.metric("Классов эквивал.", len(result.classes))
-
+                st.metric("Классов эквивал.", metrics["classes_count"])
+            with col5:
+                st.metric("Энтропия", f"{metrics['entropy']:.2f}")
+            
+            # ── ТЕНЕВЫЕ МЕТРИКИ (если включены) ──────────────
+            if shadow_norm:
+                shadow = ShadowMetrics.calculate(result)
+                st.subheader("🔮 Теневые метрики (неконфлюэнтность)")
+                scol1, scol2, scol3 = st.columns(3)
+                with scol1:
+                    st.metric("Теневая энтропия", f"{shadow['shadow_entropy']:.2f}")
+                with scol2:
+                    st.metric("Стратег. расходимость", f"{shadow['strategy_divergence']:.2f}")
+                with scol3:
+                    st.metric("Уникальных факторов", shadow["unique_factors"])
+                st.caption(f"Стратегии: {', '.join(shadow['strategies_tested'])}")
+            
+            # ── ТИП СТРУКТУРЫ ──────────────────────────────────
+            if metrics["is_classical"]:
+                st.success(f"✅ Классическая структура: {metrics['classical_type']}")
+            else:
+                st.warning(f"🔄 Гибридная структура (не классическая)")
+            
             st.markdown(f"**Родители:** {', '.join(atom.parent_atoms)}")
             st.markdown(f"**Взаимодействие:** {atom.interaction}")
 
