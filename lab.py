@@ -2500,12 +2500,12 @@ with st.sidebar:
         A_obj = lib[atom_a_name]
         B_obj = lib[atom_b_name]
         with st.spinner("Синтез..."):
-            result = synthesize(
+             result = synthesize(
                 A_obj, B_obj, action_name,
                 user_equations = st.session_state.identifications if st.session_state.identifications else None,
                 custom_equations = parsed_custom if parsed_custom else None,
-                aggressive_normalization = aggressive_norm   
-               
+                aggressive_normalization = aggressive_norm,
+                shadow_analysis = shadow_norm
             )
             
 
