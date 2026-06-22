@@ -14,7 +14,19 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import io
+import math
+import random
+from enum import Enum
+import pandas as pd
 
+
+class ReductionStrategy(Enum):
+    """Стратегии применения правил переписывания."""
+    LEFT_TO_RIGHT = "left_to_right"
+    RIGHT_TO_LEFT = "right_to_left"
+    RANDOM = "random"
+    SHORTEST_FIRST = "shortest_first"
+    LONGEST_FIRST = "longest_first"
 
 # ═══════════════════════════════════════════════════════════════════
 # CORE ENGINE (Term, CongruenceClosure — без изменений)
@@ -238,7 +250,8 @@ class SynthesisResult:
 def synthesize(A: Atom, B: Atom, action_name: str = "·", 
                user_equations: List[Tuple[str, str]] = None,
                custom_equations: List[Tuple[str, str]] = None,
-               aggressive_normalization: bool = False) -> SynthesisResult:
+               aggressive_normalization: bool = False,
+               shadow_analysis: bool = False) -> SynthesisResult:
     all_ops = {}
     all_ops.update(A.operations)
     all_ops.update(B.operations)
@@ -471,6 +484,12 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·",
             parent_B=B,
             action_name=action_name
         )
+        # ── Shadow analysis (если включено, вычисляем до возврата) ──
+    if shadow_analysis:
+        # Метрики будут вычислены в UI, но сохраняем флаг в результате
+        pass
+
+                   
 
     # Построение нового атома
     new_carrier = []
@@ -774,6 +793,92 @@ class RewritingSystem:
 
         return mapping
 
+# ═══════════════════════════════════════════════════════════════════
+# REDUCTION GRAPH (для теневых метрик)
+# ═══════════════════════════════════════════════════════════════════
+
+class ReductionGraph:
+    """
+    Строит граф редукций для терма при заданной стратегии.
+    """
+    
+    def __init__(self, term: Term, rules: List[Tuple[Term, Term]], strategy: ReductionStrategy = ReductionStrategy.LEFT_TO_RIGHT):
+        self.term = term
+        self.rules = rules
+        self.strategy = strategy
+        self.nodes = set()
+        self.edges = []
+        self._build()
+    
+    def _build(self):
+        visited = set()
+        stack = [self.term]
+        
+        while stack:
+            t = stack.pop()
+            if t in visited:
+                continue
+            visited.add(t)
+            self.nodes.add(t)
+            
+            for left, right in self._get_ordered_rules():
+                for match in self._find_matches(t, left):
+                    new_term = self._apply_match(t, match, right)
+                    if new_term not in visited:
+                        self.edges.append((t, new_term))
+                        stack.append(new_term)
+    
+    def _get_ordered_rules(self):
+        if self.strategy == ReductionStrategy.LEFT_TO_RIGHT:
+            return self.rules
+        elif self.strategy == ReductionStrategy.RIGHT_TO_LEFT:
+            return list(reversed(self.rules))
+        elif self.strategy == ReductionStrategy.RANDOM:
+            shuffled = self.rules.copy()
+            random.shuffle(shuffled)
+            return shuffled
+        elif self.strategy == ReductionStrategy.SHORTEST_FIRST:
+            return sorted(self.rules, key=lambda r: len(repr(r[0])))
+        elif self.strategy == ReductionStrategy.LONGEST_FIRST:
+            return sorted(self.rules, key=lambda r: len(repr(r[0])), reverse=True)
+        return self.rules
+    
+    def _find_matches(self, term: Term, pattern: Term) -> List[Dict[str, Term]]:
+        matches = []
+        self._match_recursive(term, pattern, {}, matches)
+        return matches
+    
+    def _match_recursive(self, term: Term, pattern: Term, mapping: Dict[str, Term], matches: List):
+        if not pattern.args and pattern.head[0].islower():
+            if pattern.head in mapping:
+                if mapping[pattern.head] == term:
+                    matches.append(mapping.copy())
+            else:
+                mapping[pattern.head] = term
+                matches.append(mapping.copy())
+        elif term.args and len(term.args) == len(pattern.args):
+            for i, (t_arg, p_arg) in enumerate(zip(term.args, pattern.args)):
+                self._match_recursive(t_arg, p_arg, mapping, matches)
+        else:
+            return
+    
+    def _apply_match(self, term: Term, match: Dict[str, Term], pattern: Term) -> Term:
+        def substitute(t: Term) -> Term:
+            if not t.args and t.head[0].islower() and t.head in match:
+                return match[t.head]
+            return Term(t.head, [substitute(arg) for arg in t.args])
+        return substitute(pattern)
+    
+    def get_normal_forms(self) -> List[Term]:
+        outgoing = set([e[0] for e in self.edges])
+        return [n for n in self.nodes if n not in outgoing]
+    
+    def get_graph_size(self) -> int:
+        return len(self.nodes)
+    
+    def get_edge_count(self) -> int:
+        return len(self.edges)
+
 
 def generalize_rules(A: Atom) -> List[Tuple[Term, Term]]:
     """Пытается обобщить конкретные аксиомы до универсальных правил."""
@@ -867,6 +972,205 @@ def add_standard_rules(rs: RewritingSystem, A: Atom, action_name: str):
                 if not any(rule[0] == Term(op_name, [var_x, const_term]) for rule in rs.rules):
                     rs.add_rule(Term(op_name, [var_x, const_term]), var_x)
 
+# ═══════════════════════════════════════════════════════════════════
+# METRICS CALCULATOR
+# ═══════════════════════════════════════════════════════════════════
+
+class MetricsCalculator:
+    """Вычисляет метрики для синтезированной структуры."""
+    
+    @staticmethod
+    def calculate(result: SynthesisResult) -> Dict[str, Any]:
+        if result.collapsed:
+            return {
+                "collapsed": True,
+                "carrier_size": 0,
+                "classes_count": len(result.classes),
+                "entropy": 0.0,
+                "stability": 0.0,
+                "collapse_steps": result.equations_count,
+                "class_ratio": 0.0,
+                "is_classical": False,
+                "classical_type": "none"
+            }
+        
+        atom = result.atom
+        carrier_size = len(atom.carrier)
+        classes_count = len(result.classes)
+        equations_count = result.equations_count
+        
+        total_terms = sum(len(elems) for elems in result.classes.values())
+        entropy = math.log(total_terms / classes_count) if classes_count > 0 else 0.0
+        class_ratio = classes_count / carrier_size if carrier_size > 0 else 0.0
+        stability = carrier_size / classes_count if classes_count > 0 else 0.0
+        
+        is_classical, classical_type = MetricsCalculator._classify_structure(atom)
+        
+        return {
+            "collapsed": False,
+            "carrier_size": carrier_size,
+            "classes_count": classes_count,
+            "entropy": entropy,
+            "stability": stability,
+            "collapse_steps": equations_count,
+            "class_ratio": class_ratio,
+            "is_classical": is_classical,
+            "classical_type": classical_type,
+            "operations": list(atom.operations.keys())
+        }
+    
+    @staticmethod
+    def _classify_structure(atom: Atom) -> Tuple[bool, str]:
+        ops = set(atom.operations.keys())
+        
+        has_add = "+" in ops
+        has_mul = "*" in ops
+        has_zero = "0" in ops
+        has_one = "1" in ops
+        has_neg = "-" in ops
+        has_inv = "inv" in ops or "⁻¹" in ops
+        
+        if has_add and has_zero and has_neg and not has_mul:
+            return True, "group"
+        if has_add and has_mul and has_zero:
+            return True, "ring"
+        if has_add and has_mul and has_zero and has_one and has_inv:
+            return True, "field"
+        if has_mul and has_one and not has_add:
+            return True, "monoid"
+        if "∧" in ops and "∨" in ops and "→" in ops:
+            return True, "topos"
+        
+        return False, "hybrid"
+
+# ═══════════════════════════════════════════════════════════════════
+# SHADOW METRICS (неконфлюэнтность, стратегическая расходимость)
+# ═══════════════════════════════════════════════════════════════════
+
+class ShadowMetrics:
+    @staticmethod
+    def calculate(result: SynthesisResult, strategies: List[ReductionStrategy] = None) -> Dict[str, Any]:
+        if strategies is None:
+            strategies = list(ReductionStrategy)
+        
+        # Извлекаем правила из аксиом атомов
+        rules = []
+        if result.parent_A:
+            for left, right in result.parent_A.axioms:
+                rules.append((left, right))
+        if result.parent_B:
+            for left, right in result.parent_B.axioms:
+                rules.append((left, right))
+        
+        all_terms = set()
+        for rep, elems in result.classes.items():
+            all_terms.update(elems)
+        
+        normal_forms = {}
+        graph_sizes = {}
+        
+        for term in list(all_terms)[:20]:  # Ограничиваем для производительности
+            for strategy in strategies:
+                graph = ReductionGraph(term, rules, strategy)
+                normal_forms[(term, strategy)] = len(graph.get_normal_forms())
+                graph_sizes[(term, strategy)] = graph.get_graph_size()
+        
+        unique_factors = len(set(normal_forms.values())) if normal_forms else 0
+        shadow_entropy = math.log(unique_factors) if unique_factors > 1 else 0.0
+        
+        # Стратегическая расходимость
+        divergence = 0.0
+        count = 0
+        for term in list(all_terms)[:20]:
+            forms = [normal_forms.get((term, s), 0) for s in strategies]
+            if len(forms) > 1 and max(forms) > 0:
+                divergence += max(forms) - min(forms)
+                count += 1
+        avg_divergence = divergence / count if count > 0 else 0.0
+        
+        return {
+            "shadow_entropy": shadow_entropy,
+            "strategy_divergence": avg_divergence,
+            "stability": unique_factors,
+            "unique_factors": unique_factors,
+            "strategies_tested": [s.value for s in strategies]
+        }
+
+# ═══════════════════════════════════════════════════════════════════
+# EXPERIMENT LOGGER (для фазовых диаграмм)
+# ═══════════════════════════════════════════════════════════════════
+
+class ExperimentLogger:
+    def __init__(self):
+        self.history = []
+    
+    def log(self, result: SynthesisResult, context: Dict[str, Any]):
+        metrics = MetricsCalculator.calculate(result)
+        if not result.collapsed:
+            shadow = ShadowMetrics.calculate(result)
+            metrics.update(shadow)
+        entry = {
+            "timestamp": datetime.now().isoformat(),
+            "context": context,
+            "metrics": metrics
+        }
+        self.history.append(entry)
+        return entry
+    
+    def get_phase_data(self):
+        data = []
+        for entry in self.history:
+            m = entry["metrics"]
+            data.append({
+                "classes": m.get("classes_count", 0),
+                "carrier": m.get("carrier_size", 0),
+                "entropy": m.get("entropy", 0),
+                "stability": m.get("stability", 0),
+                "class_ratio": m.get("class_ratio", 0),
+                "is_classical": m.get("is_classical", False),
+                "type": m.get("classical_type", "none"),
+                "shadow_entropy": m.get("shadow_entropy", 0),
+                "divergence": m.get("strategy_divergence", 0)
+            })
+        return pd.DataFrame(data) if data else pd.DataFrame()
+    
+    def plot_phase_diagram(self):
+        df = self.get_phase_data()
+        if df.empty:
+            fig, ax = plt.subplots(figsize=(8, 6), facecolor='#0e1117')
+            ax.text(0.5, 0.5, "Нет данных для фазовой диаграммы",
+                   ha='center', va='center', color='white', fontsize=14)
+            ax.set_facecolor('#0e1117')
+            ax.axis('off')
+            return fig
+        
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6), facecolor='#0e1117')
+        
+        scatter = ax1.scatter(
+            df["carrier"], df["classes"],
+            c=df["shadow_entropy"], cmap='plasma',
+            alpha=0.7, s=50
+        )
+        ax1.set_xlabel("Размер носителя", color='white')
+        ax1.set_ylabel("Число классов", color='white')
+        ax1.set_title("Классы vs Носитель (цвет = теневая энтропия)", color='white')
+        ax1.set_facecolor('#1a1e24')
+        ax1.tick_params(colors='white')
+        plt.colorbar(scatter, ax=ax1, label='Shadow entropy')
+        
+        type_counts = df["type"].value_counts()
+        colors = {'group': '#3498db', 'ring': '#2ecc71', 'field': '#f1c40f',
+                  'monoid': '#e67e22', 'topos': '#9b59b6', 'hybrid': '#e74c3c',
+                  'none': '#95a5a6'}
+        pie_colors = [colors.get(t, '#95a5a6') for t in type_counts.index]
+        ax2.pie(type_counts.values, labels=type_counts.index, autopct='%1.1f%%',
+                colors=pie_colors, textprops={'color': 'white', 'fontsize': 10})
+        ax2.set_title("Типы структур", color='white')
+        ax2.set_facecolor('#0e1117')
+        
+        plt.suptitle("Фазовая диаграмма структур", color='white', fontsize=16)
+        plt.tight_layout()
+        return fig
 
 def build_rewriting_system(A: Atom, action_name: str) -> RewritingSystem:
     """Создать систему правил редукции из аксиом атома A."""
@@ -2193,8 +2497,13 @@ with st.sidebar:
                 A_obj, B_obj, action_name,
                 user_equations = st.session_state.identifications if st.session_state.identifications else None,
                 custom_equations = parsed_custom if parsed_custom else None,
-                aggressive_normalization = aggressive_norm
+                aggressive_normalization = aggressive_norm   
+               
             )
+            
+
+        
+
         st.session_state.last_result = result
 
         if result.collapsed:
@@ -2203,7 +2512,8 @@ with st.sidebar:
             st.success(f"✅ {result.atom.name}")
             lib[result.atom.name] = result.atom
             st.rerun()
-
+            
+   
 # Основная область
 tab1, tab2 = st.tabs(["🔬 Результат", "📖 Библиотека"])
 
