@@ -2273,6 +2273,45 @@ def create_builtin_library() -> Dict[str, Atom]:
     )
     lib[Wild_Minkowski.name] = Wild_Minkowski
 
+     # ── НАСТОЯЩАЯ АГРЕССИВНАЯ КОНГРУЭНЦИЯ ──
+    Aggressive_Two = Atom(
+        name="Aggressive Two (e = 0)",
+        carrier=["0", "e"],
+        operations={"*": 2, "0": 0, "e": 0},
+        axioms=[
+            # Отождествляем e и 0 (настоящая конгруэнция)
+            (Term("e", []), Term("0", [])),   # <-- критическая строка
+            # Тривиальные умножения
+            (Term("*", [Term("0"), Term("0")]), Term("0")),
+        ],
+        description="Агрессивная конгруэнция: e = 0. Всё схлопывается."
+    )
+    lib[Aggressive_Two.name] = Aggressive_Two
+    
+    # ── МЯГКИЙ ATOM (сохраняет различия) ──
+    Soft_Two = Atom(
+        name="Soft Two (0, e)",
+        carrier=["0", "e"],
+        operations={
+            "*": 2,
+            "0": 0,
+            "e": 0
+        },
+        axioms=[
+            # Мягкая склейка: 0 и e остаются различными
+            (Term("*", [Term("0"), Term("0")]), Term("0")),
+            (Term("*", [Term("0"), Term("e")]), Term("e")),
+            (Term("*", [Term("e"), Term("0")]), Term("e")),
+            (Term("*", [Term("e"), Term("e")]), Term("e")),
+            
+            # Константы
+            (Term("0", []), Term("0")),
+            (Term("e", []), Term("e")),
+        ],
+        description="Мягкая версия Two: 0 и e различимы, e поглощает себя."
+    )
+    lib[Soft_Two.name] = Soft_Two
+
     # Дикая группа Лоренца — с действием, которое заведомо уходит в тень
     Wild_Lorentz = Atom(
         name="Wild Lorentz Group (B, P)",
