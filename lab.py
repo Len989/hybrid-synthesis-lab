@@ -2287,6 +2287,30 @@ def create_builtin_library() -> Dict[str, Atom]:
         description="Агрессивная конгруэнция: e = 0. Всё схлопывается."
     )
     lib[Aggressive_Two.name] = Aggressive_Two
+
+    # ── НЕЙТРАЛЬНЫЙ ATOM (равноправные 0 и e) ──
+    Neutral_Two = Atom(
+        name="Neutral Two (0, e)",
+        carrier=["0", "e"],
+        operations={
+            "*": 2,
+            "0": 0,
+            "e": 0
+        },
+        axioms=[
+            # Равноправные элементы: симметричная таблица
+            (Term("*", [Term("0"), Term("0")]), Term("0")),
+            (Term("*", [Term("0"), Term("e")]), Term("e")),
+            (Term("*", [Term("e"), Term("0")]), Term("e")),
+            (Term("*", [Term("e"), Term("e")]), Term("0")),   # <-- группа Z2!
+            
+            # Константы
+            (Term("0", []), Term("0")),
+            (Term("e", []), Term("e")),
+        ],
+        description="Нейтральный Two: 0 и e равноправны, e*e=0 (как в группе Z2)."
+    )
+    lib[Neutral_Two.name] = Neutral_Two
     
     # ── МЯГКИЙ ATOM (сохраняет различия) ──
     Soft_Two = Atom(
