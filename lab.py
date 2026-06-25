@@ -1427,6 +1427,42 @@ def create_builtin_library() -> Dict[str, Atom]:
     )
     lib[Z3_field.name] = Z3_field
 
+    # ── СВОБОДНАЯ ГРУППА (Free Group) ──
+    FreeGroup = Atom(
+        name="Free Group (a, b)",
+        carrier=["e", "a", "b", "a^-1", "b^-1"],
+        operations={
+            "*": 2,    # умножение (композиция)
+            "e": 0,    # нейтральный элемент
+            "inv": 1   # обратный элемент
+        },
+        axioms=[
+            # Тождество — нейтральный
+            (Term("*", [Term("e"), Term("x")]), Term("x")),
+            (Term("*", [Term("x"), Term("e")]), Term("x")),
+        
+            # Обратные элементы
+            (Term("*", [Term("a"), Term("a^-1")]), Term("e")),
+            (Term("*", [Term("a^-1"), Term("a")]), Term("e")),
+            (Term("*", [Term("b"), Term("b^-1")]), Term("e")),
+            (Term("*", [Term("b^-1"), Term("b")]), Term("e")),
+        
+            # inv(inv(x)) = x
+            (Term("inv", [Term("inv", [Term("x")])]), Term("x")),
+            (Term("inv", [Term("e")]), Term("e")),
+            (Term("inv", [Term("a")]), Term("a^-1")),
+            (Term("inv", [Term("a^-1")]), Term("a")),
+            (Term("inv", [Term("b")]), Term("b^-1")),
+            (Term("inv", [Term("b^-1")]), Term("b")),
+        
+            # inv(x * y) = inv(y) * inv(x)
+            (Term("inv", [Term("*", [Term("x"), Term("y")])]), 
+             Term("*", [Term("inv", [Term("y")]), Term("inv", [Term("x")])])),
+        ],
+        description="Свободная группа с двумя генераторами a, b. Без дополнительных соотношений."
+    )
+    lib[FreeGroup.name] = FreeGroup
+
     # V₂ over GF(2)
     V2_GF2 = Atom(
         name="V₂ over GF(2)",
