@@ -251,7 +251,8 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·",
                user_equations: List[Tuple[str, str]] = None,
                custom_equations: List[Tuple[str, str]] = None,
                aggressive_normalization: bool = False,
-               shadow_analysis: bool = False) -> SynthesisResult:
+               shadow_analysis: bool = False,
+               include_shadows_in_carrier: bool = False) -> SynthesisResult:
     all_ops = {}
     all_ops.update(A.operations)
     all_ops.update(B.operations)
@@ -492,14 +493,27 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·",
                    
 
     # Построение нового атома
+        # Построение нового атома
     new_carrier = []
     carrier_repr_map = {}
-    for t in carrier_terms:
-        norm_t = rs.normalize(t)
-        if norm_t not in carrier_repr_map:
-            repr_name = repr(norm_t)
-            new_carrier.append(repr_name)
-            carrier_repr_map[norm_t] = repr_name
+    
+    if include_shadows_in_carrier:
+        # РЕЖИМ "СИММЕТРИЧНАЯ ФАКТОРИЗАЦИЯ" (все классы)
+        # Проходим по всем классам и добавляем их представителей в носитель
+        for rep, elems in classes.items():
+            # Берём представителя класса (rep) как элемент носителя
+            repr_name = repr(rep)
+            if repr_name not in new_carrier:
+                new_carrier.append(repr_name)
+                carrier_repr_map[rep] = repr_name
+    else:
+        # ТЕКУЩИЙ РЕЖИМ (гибрид): только классы из носителя A
+        for t in carrier_terms:
+            norm_t = rs.normalize(t)
+            if norm_t not in carrier_repr_map:
+                repr_name = repr(norm_t)
+                new_carrier.append(repr_name)
+                carrier_repr_map[norm_t] = repr_name
 
     new_operations = {}
     # Сохраняем ВСЕ операции атома A (и константы, и бинарные)
@@ -2562,7 +2576,12 @@ with st.sidebar:
         value=False,
         help="Вычисляет теневую энтропию и стратегическую расходимость на графе редукций."
     )
-
+    # 🌐 Симметричная факторизация (все классы в носителе)
+    include_shadows = st.checkbox(
+        "🌐 Симметричная факторизация (все классы в носителе)",
+        value=False,
+        help="Если включено — носитель гибрида будет состоять из ВСЕХ классов эквивалентности, а не только из классов элементов A. Это даёт симметричную структуру, где тени становятся частью носителя."
+    )
     # Кнопка очистки (опционально)
     if st.button("🧹 Очистить равенства", key="clear_eqs"):
         st.session_state.custom_eqs = []
@@ -2599,12 +2618,13 @@ with st.sidebar:
         A_obj = lib[atom_a_name]
         B_obj = lib[atom_b_name]
         with st.spinner("Синтез..."):
-             result = synthesize(
+            result = synthesize(
                 A_obj, B_obj, action_name,
                 user_equations = st.session_state.identifications if st.session_state.identifications else None,
                 custom_equations = parsed_custom if parsed_custom else None,
                 aggressive_normalization = aggressive_norm,
-                shadow_analysis = shadow_norm
+                shadow_analysis = shadow_norm,
+                include_shadows_in_carrier = include_shadows
             )
             
 
