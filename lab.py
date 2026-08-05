@@ -485,15 +485,7 @@ def synthesize(A: Atom, B: Atom, action_name: str = "·",
             parent_B=B,
             action_name=action_name
         )
-        # ── Shadow analysis (если включено, вычисляем до возврата) ──
-    if shadow_analysis:
-        # Метрики будут вычислены в UI, но сохраняем флаг в результате
-        pass
-
-                   
-
     # Построение нового атома
-        # Построение нового атома
     new_carrier = []
     carrier_repr_map = {}
     
@@ -2431,6 +2423,162 @@ def create_builtin_library() -> Dict[str, Atom]:
     lib[Wild_Lorentz.name] = Wild_Lorentz
 
 
+
+    # ═══════════════════════════════════════════════════════════════
+    # Крипто-ориентированные атомы (для аналогии с SPN / алгебраическими атаками)
+    # ═══════════════════════════════════════════════════════════════
+
+    # GF(8) = GF(2³), неприводимый многочлен x³ + x + 1, a³ = a+1
+    GF8 = Atom(
+        name="GF(8) — Finite Field of 8 elements",
+        carrier=["0", "1", "a", "a+1", "a2", "a2+1", "a2+a", "a2+a+1"],
+        operations={"+": 2, "0": 0, "-": 1, "*": 2, "1": 0},
+        axioms=[
+            (Term("+", [Term("0"), Term("x")]), Term("x")),
+            (Term("+", [Term("x"), Term("0")]), Term("x")),
+            (Term("+", [Term("x"), Term("x")]), Term("0")),
+            (Term("-", [Term("x")]), Term("x")),
+
+            (Term("+", [Term("1"), Term("a")]), Term("a+1")),
+            (Term("+", [Term("1"), Term("a2")]), Term("a2+1")),
+            (Term("+", [Term("1"), Term("a2+a")]), Term("a2+a+1")),
+            (Term("+", [Term("a"), Term("a2")]), Term("a2+a")),
+            (Term("+", [Term("a"), Term("a2+1")]), Term("a2+a+1")),
+            (Term("+", [Term("a+1"), Term("a2")]), Term("a2+a+1")),
+            (Term("+", [Term("a+1"), Term("a2+a")]), Term("a2+1")),
+            (Term("+", [Term("a2"), Term("a2+a")]), Term("a")),
+            (Term("+", [Term("a2+1"), Term("a2+a")]), Term("1")),
+            (Term("+", [Term("a2+1"), Term("a2+a+1")]), Term("a")),
+            (Term("+", [Term("a2+a"), Term("a2+a+1")]), Term("1")),
+
+            (Term("*", [Term("0"), Term("x")]), Term("0")),
+            (Term("*", [Term("x"), Term("0")]), Term("0")),
+            (Term("*", [Term("1"), Term("x")]), Term("x")),
+            (Term("*", [Term("x"), Term("1")]), Term("x")),
+
+            (Term("*", [Term("a"), Term("a")]), Term("a2")),
+            (Term("*", [Term("a"), Term("a2")]), Term("a+1")),
+            (Term("*", [Term("a2"), Term("a2")]), Term("a2+a")),
+            (Term("*", [Term("a"), Term("a+1")]), Term("a2+a")),
+            (Term("*", [Term("a"), Term("a2+1")]), Term("a2+a+1")),
+            (Term("*", [Term("a"), Term("a2+a")]), Term("a2+1")),
+            (Term("*", [Term("a"), Term("a2+a+1")]), Term("1")),
+
+            (Term("*", [Term("a+1"), Term("a+1")]), Term("a2+1")),
+            (Term("*", [Term("a+1"), Term("a2")]), Term("1")),
+            (Term("*", [Term("a+1"), Term("a2+1")]), Term("a2")),
+            (Term("*", [Term("a+1"), Term("a2+a")]), Term("a")),
+            (Term("*", [Term("a+1"), Term("a2+a+1")]), Term("a2+a")),
+
+            (Term("*", [Term("a2"), Term("a2+1")]), Term("a")),
+            (Term("*", [Term("a2"), Term("a2+a")]), Term("a2+a+1")),
+            (Term("*", [Term("a2"), Term("a2+a+1")]), Term("a+1")),
+
+            (Term("*", [Term("a2+1"), Term("a2+1")]), Term("a2+a")),
+            (Term("*", [Term("a2+1"), Term("a2+a")]), Term("1")),
+            (Term("*", [Term("a2+1"), Term("a2+a+1")]), Term("a2")),
+
+            (Term("*", [Term("a2+a"), Term("a2+a")]), Term("a2+1")),
+            (Term("*", [Term("a2+a"), Term("a2+a+1")]), Term("a")),
+            (Term("*", [Term("a2+a+1"), Term("a2+a+1")]), Term("a2")),
+        ],
+        description="Конечное поле GF(2³). Неприводимый многочлен x³+x+1. Основа для нелинейных S-box (инверсия, степенные функции)."
+    )
+    lib[GF8.name] = GF8
+
+    # Чистый V₄ над GF(2) — линейный слой
+    V4_GF2 = Atom(
+        name="V₄ over GF(2)",
+        carrier=[
+            "0",
+            "e1", "e2", "e3", "e4",
+            "e1+e2", "e1+e3", "e1+e4", "e2+e3", "e2+e4", "e3+e4",
+            "e1+e2+e3", "e1+e2+e4", "e1+e3+e4", "e2+e3+e4",
+            "e1+e2+e3+e4"
+        ],
+        operations={"+": 2, "0": 0, "-": 1},
+        axioms=[
+            (Term("+", [Term("0"), Term("x")]), Term("x")),
+            (Term("+", [Term("x"), Term("0")]), Term("x")),
+            (Term("+", [Term("x"), Term("x")]), Term("0")),
+            (Term("-", [Term("x")]), Term("x")),
+            (Term("+", [Term("e1"), Term("e2")]), Term("e1+e2")),
+            (Term("+", [Term("e1"), Term("e3")]), Term("e1+e3")),
+            (Term("+", [Term("e1"), Term("e4")]), Term("e1+e4")),
+            (Term("+", [Term("e2"), Term("e3")]), Term("e2+e3")),
+            (Term("+", [Term("e2"), Term("e4")]), Term("e2+e4")),
+            (Term("+", [Term("e3"), Term("e4")]), Term("e3+e4")),
+            (Term("+", [Term("e1"), Term("e2+e3")]), Term("e1+e2+e3")),
+            (Term("+", [Term("e1"), Term("e2+e4")]), Term("e1+e2+e4")),
+            (Term("+", [Term("e1"), Term("e3+e4")]), Term("e1+e3+e4")),
+            (Term("+", [Term("e2"), Term("e3+e4")]), Term("e2+e3+e4")),
+            (Term("+", [Term("e1+e2"), Term("e3")]), Term("e1+e2+e3")),
+            (Term("+", [Term("e1+e2"), Term("e4")]), Term("e1+e2+e4")),
+            (Term("+", [Term("e1+e3"), Term("e4")]), Term("e1+e3+e4")),
+            (Term("+", [Term("e2+e3"), Term("e4")]), Term("e2+e3+e4")),
+            (Term("+", [Term("e1+e2+e3"), Term("e4")]), Term("e1+e2+e3+e4")),
+        ],
+        description="4-мерное векторное пространство над GF(2). Чистая линейная структура (аналог линейного слоя в SPN)."
+    )
+    lib[V4_GF2.name] = V4_GF2
+
+    # 4-битная S-box из PRESENT
+    Sbox4 = Atom(
+        name="S-box 4-bit (PRESENT)",
+        carrier=[str(i) for i in range(16)],
+        operations={"sbox": 1, "id": 1},
+        axioms=[
+            (Term("id", [Term("x")]), Term("x")),
+            (Term("sbox", [Term("0")]), Term("12")),
+            (Term("sbox", [Term("1")]), Term("5")),
+            (Term("sbox", [Term("2")]), Term("6")),
+            (Term("sbox", [Term("3")]), Term("11")),
+            (Term("sbox", [Term("4")]), Term("9")),
+            (Term("sbox", [Term("5")]), Term("0")),
+            (Term("sbox", [Term("6")]), Term("10")),
+            (Term("sbox", [Term("7")]), Term("13")),
+            (Term("sbox", [Term("8")]), Term("3")),
+            (Term("sbox", [Term("9")]), Term("14")),
+            (Term("sbox", [Term("10")]), Term("15")),
+            (Term("sbox", [Term("11")]), Term("8")),
+            (Term("sbox", [Term("12")]), Term("4")),
+            (Term("sbox", [Term("13")]), Term("7")),
+            (Term("sbox", [Term("14")]), Term("1")),
+            (Term("sbox", [Term("15")]), Term("2")),
+        ],
+        description="4-битная S-box из шифра PRESENT. Сильная нелинейная подстановка (дифференциальная равномерность 4)."
+    )
+    lib[Sbox4.name] = Sbox4
+
+    # Простой линейный слой 4→4 (циклический сдвиг битов)
+    Linear4 = Atom(
+        name="Linear layer 4-bit (wire permutation)",
+        carrier=[str(i) for i in range(16)],
+        operations={"L": 1, "id": 1},
+        axioms=[
+            (Term("id", [Term("x")]), Term("x")),
+            (Term("L", [Term("0")]), Term("0")),
+            (Term("L", [Term("1")]), Term("2")),
+            (Term("L", [Term("2")]), Term("4")),
+            (Term("L", [Term("3")]), Term("6")),
+            (Term("L", [Term("4")]), Term("8")),
+            (Term("L", [Term("5")]), Term("10")),
+            (Term("L", [Term("6")]), Term("12")),
+            (Term("L", [Term("7")]), Term("14")),
+            (Term("L", [Term("8")]), Term("1")),
+            (Term("L", [Term("9")]), Term("3")),
+            (Term("L", [Term("10")]), Term("5")),
+            (Term("L", [Term("11")]), Term("7")),
+            (Term("L", [Term("12")]), Term("9")),
+            (Term("L", [Term("13")]), Term("11")),
+            (Term("L", [Term("14")]), Term("13")),
+            (Term("L", [Term("15")]), Term("15")),
+        ],
+        description="Простой линейный слой (перестановка битов). Аналог диффузии в SPN."
+    )
+    lib[Linear4.name] = Linear4
+
+
     print(f"✅ Total structures in library: {len(lib)}")
 
     return lib
@@ -2729,25 +2877,41 @@ with tab1:
                     )
                     table_data = []
                     rs = build_rewriting_system(A, action_name)
+                    # Карта: root → лучший представитель (предпочитаем элементы носителя)
+                    root_to_best = {}
+                    carrier_set = set(atom.carrier)
+                    if result.cc:
+                        for rep, elems in result.classes.items():
+                            roots = {result.cc.find(rep)}
+                            for e in elems:
+                                if e in result.cc.parent:
+                                    roots.add(result.cc.find(e))
+                            for root in roots:
+                                cand = root_to_best.get(root)
+                                # предпочитаем короткий / из носителя
+                                score = (0 if repr(rep) in carrier_set else 1, len(repr(rep)))
+                                if cand is None:
+                                    root_to_best[root] = rep
+                                else:
+                                    old_score = (0 if repr(cand) in carrier_set else 1, len(repr(cand)))
+                                    if score < old_score:
+                                        root_to_best[root] = rep
+
                     for b_elem in B.carrier:
                         row = [f"**{b_elem}**"]
                         for a_elem in atom.carrier:
                             action_term = Term(action_name, [Term(b_elem), Term(a_elem)])
                             norm_action = rs.normalize(action_term)
-
-                            # Приоритет — поиск через CongruenceClosure
                             found_rep = None
-                            if result.cc and norm_action in result.cc.parent:
-                                root = result.cc.find(norm_action)
-                                for rep, elems in result.classes.items():
-                                    if rep == root:
-                                        found_rep = rep
-                                        break
-                                    if any(result.cc.find(e) == root for e in elems):
-                                        found_rep = rep
-                                        break
 
-                            # Запасная проверка
+                            if result.cc:
+                                # регистрируем терм если нужно
+                                if norm_action not in result.cc.parent:
+                                    result.cc.parent[norm_action] = norm_action
+                                    result.cc.rank[norm_action] = 0
+                                root = result.cc.find(norm_action)
+                                found_rep = root_to_best.get(root)
+
                             if found_rep is None:
                                 for rep, elems in result.classes.items():
                                     if norm_action == rep or norm_action in elems:
@@ -2765,7 +2929,7 @@ with tab1:
 
                     for row in table_data:
                         st.write(" | ".join(row))
-                    st.caption("Прочерк означает, что терм не попал ни в один класс (редкий случай).")
+                    st.caption("Прочерк означает, что терм не попал ни в один класс (или действие не редуцировалось до носителя).")
 
                 for op_name, arity in atom.operations.items():
                     if op_name == action_name:
@@ -2971,4 +3135,5 @@ with tab3:
         st.info("Пока нет данных. Проведите синтез и добавьте результат в историю.")
 
 st.markdown("---")
-st.caption("Hybrid Synthesis Laboratory v2.1 | L. Shcherbakov (2026)")
+st.caption("Hybrid Synthesis Laboratory v2.2 | crypto atoms + table fix | L. Shcherbakov (2026)")
+
